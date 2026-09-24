@@ -180,10 +180,10 @@ a{color:inherit;text-decoration:none}
 .more-btn:hover{border-color:var(--muted);color:var(--text)}
 
 .quicklinks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
-.ql{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:14px;min-width:0;transition:border-color .15s}
+.ql{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:14px;min-width:0;text-align:center;transition:border-color .15s}
 .ql:hover{border-color:var(--muted)}
-.ql>span:last-child{min-width:0}
-.ql small{display:block;font-weight:500;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ql>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:400px){.ql{flex-direction:column;gap:6px;font-size:13px}}
 .qi{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;flex:none}
 @media(max-width:480px){.ql{flex-direction:column;align-items:flex-start;gap:6px}}
 
@@ -289,7 +289,8 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 @media(min-width:720px){.sheet-grip{display:none}}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:12px 16px 8px 20px;flex:none}
 .sheet-head h2{flex:1;font-size:21px;font-weight:800;font-stretch:80%}
-.sheet-body{padding:8px 20px 18px;overflow-y:auto;flex:1;overscroll-behavior:contain}
+.sheet-body{padding:8px 20px 18px;overflow-y:auto;overflow-x:hidden;flex:1;overscroll-behavior:contain}
+.sheet-body *{max-width:100%}
 .sheet-foot{padding:12px 20px 14px;display:flex;gap:8px;border-top:1px solid var(--border);flex:none}
 .sheet-foot .btn{flex:1}
 
@@ -307,11 +308,13 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .field>label,.flabel{display:block;font-size:13.5px;font-weight:650;color:var(--muted);margin-bottom:6px}
 .flabel-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .flabel-row label{font-size:13.5px;font-weight:650;color:var(--muted)}
-.field input:not([type=range]):not([type=checkbox]),.field select,.field textarea,.input{width:100%;min-height:48px;border-radius:8px;border:1px solid var(--border);background:var(--bg);padding:11px 13px;font-size:16px;outline:none;transition:border-color .15s,box-shadow .15s}
+.field input:not([type=range]):not([type=checkbox]),.field select,.field textarea,.input{width:100%;max-width:100%;min-width:0;min-height:48px;border-radius:8px;border:1px solid var(--border);background:var(--bg);padding:11px 13px;font-size:16px;outline:none;transition:border-color .15s,box-shadow .15s}
 .field textarea{resize:vertical;min-height:92px;line-height:1.45}
 .field input:focus,.field select:focus,.field textarea:focus,.input:focus{border-color:var(--info);box-shadow:0 0 0 4px var(--focus)}
 .invalid{border-color:var(--danger)!important}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2>*{min-width:0}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
 @media(max-width:380px){.grid2{grid-template-columns:1fr}}
 .member{display:flex;gap:6px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
 .member-grid{flex:1;display:grid;gap:6px;min-width:0}
@@ -322,7 +325,9 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .seg{display:flex;background:var(--surface-2);border-radius:9px;padding:3px;gap:3px}
 .seg button{flex:1;height:38px;border-radius:7px;font-weight:650;font-size:14px;color:var(--muted)}
 .seg button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.cr-steps{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}
+.cr-steps{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;min-width:0}
+.cr-steps>div{min-width:0}
+.cr-steps input[type=range]{width:100%;min-width:0}
 .cr-step-head{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:600}
 .cr-step-head b{font-variant-numeric:tabular-nums}
 
@@ -400,8 +405,10 @@ td .avatars{margin-left:0}
 .acct{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px}
 .acct b{display:block;font-size:13.5px;word-break:break-all}
 .acct small{color:var(--muted);font-size:12px}
-.byline{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:13.5px}
-.byline span{flex:1}
+.byline{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:13.5px}
+.byline>span{flex:1 1 auto;min-width:0;word-break:break-word}
+.byline b{font-weight:700}
+.byline .linklike{flex:none;white-space:nowrap}
 .linked{display:grid;gap:6px;margin-bottom:4px}
 .linked-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px}
 .linked-row:hover{border-color:var(--muted)}
@@ -417,6 +424,7 @@ td .avatars{margin-left:0}
 .mine-bar .mine-cta{flex:none;font-size:12.5px;font-weight:700;text-decoration:underline;opacity:.9}
 .chip.mine{background:var(--info-bg);color:var(--info);border:1px solid currentColor;font-weight:700}
 .chip.mine.late{background:var(--warn-bg);color:var(--warning)}
+.mt-xs{margin-top:6px}
 </style>
 </head>
 <body>
@@ -1169,7 +1177,7 @@ function tabSuivi(p) {
 }
 function quickLink(p, k, c) {
   const ls = p.links[k], n = ls.length, href = n === 1 ? safeUrl(ls[0].url) : '';
-  const inner = `<span class="qi" style="background:${c.col}22;color:${c.col}">${ic(c.ic, 18)}</span><span>${c.l}<small>${n ? (n === 1 ? esc(ls[0].label || hostOf(href)) : plural(n, 'lien')) : 'Ajouter un lien'}</small></span>`;
+  const inner = `<span class="qi" style="background:${c.col}22;color:${c.col}">${ic(c.ic, 18)}</span><span>${c.l}</span>`;
   if (href) return `<a class="ql" href="${esc(href)}" target="_blank" rel="noopener">${inner}</a>`;
   return `<a class="ql" href="#/p/${p.id}/liens" ${n ? '' : `data-act="add-link" data-id="${p.id}" data-cat="${k}"`}>${inner}</a>`;
 }
@@ -1369,8 +1377,13 @@ function reportForm(p, r, opts) {
       ${openReqs.length ? `<div class="field"><label for="cr-rq">Demande d'intervention liée</label>
         <select id="cr-rq" name="requestId"><option value="">Aucune</option>${openReqs.map(q =>
           `<option value="${q.id}" ${q.id === (d.requestId || '') ? 'selected' : ''}>${esc(q.title)} — ${REQ_STATUS[q.status].l.toLowerCase()}</option>`).join('')}</select></div>` : ''}
-      ${meName() ? `<div class="byline">${avatar(d.author || meName(), 'xs')}<span>Rédigé par <b>${esc(d.author || meName())}</b></span><button type="button" class="linklike" id="cr-who">Ce n'est pas moi</button></div>`
+      ${meName() ? `<div class="byline"><span>Rédigé par <b>${esc(d.author || meName())}</b></span><button type="button" class="linklike" id="cr-who">Ce n'est pas moi</button></div>`
         : `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" value="" placeholder="Votre nom, mémorisé pour les prochains comptes rendus"></div>`}
+      <div class="field">
+        <div class="flabel">Photos du chantier</div>
+        <button type="button" class="btn btn-ghost btn-block" id="cr-photos">${ic('image', 17)} ${p.links.photos.length ? 'Ouvrir le dossier photos' : 'Indiquer le dossier photos'}</button>
+        <p class="hint mt-xs">${p.links.photos.length ? "Le dossier s'ouvre dans un nouvel onglet pour y déposer vos prises de vue." : "Aucun dossier n'est encore associé à ce chantier."}</p>
+      </div>
       <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
       <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
       <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
@@ -1384,6 +1397,15 @@ function reportForm(p, r, opts) {
     onMount(sh) {
       bindRanges(sh);
       const f = $('#crf', sh);
+      const ph = $('#cr-photos', sh);
+      if (ph) ph.onclick = () => {
+        const l = p.links.photos[0];
+        const u = l && safeUrl(l.url);
+        if (u) { window.open(u, '_blank', 'noopener'); return; }
+        closeSheet();
+        toast("Ajoutez d'abord le lien du dossier photos");
+        linkForm(p, null, 'photos');
+      };
       const who = $('#cr-who', sh);
       if (who) who.onclick = () => {
         const line = who.closest('.byline');
