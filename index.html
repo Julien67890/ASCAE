@@ -55,7 +55,8 @@ a{color:inherit;text-decoration:none}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 .ic{flex:none;display:block}
 
-.wrap{max-width:980px;margin:0 auto;padding:0 16px 128px}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px 40px}
+.wrap.has-fab{padding-bottom:120px}
 .wrap.wide{max-width:1360px}
 
 /* ---------- barre haute ---------- */
@@ -155,24 +156,28 @@ a{color:inherit;text-decoration:none}
 .empty .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .empty-line{font-size:13.5px;color:var(--muted);padding:12px 14px;border:1px dashed var(--border);border-radius:8px}
 
-/* ---------- héros projet ---------- */
-.hero{background:var(--hero);color:#fff;border-radius:14px;padding:20px;display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center}
-.hero-num{font-size:68px;font-weight:800;font-stretch:70%;line-height:.9;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.hero-num small{font-size:28px;color:var(--accent)}
-.hero-cap{font-size:13px;color:rgba(255,255,255,.65);margin-top:6px}
-.panel-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;padding:8px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(255,255,255,.03);transform:perspective(500px) rotateX(14deg);transform-origin:bottom}
-.panel-grid i{aspect-ratio:1/1.5;border-radius:2px;background:var(--cell-off);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
-.panel-grid i.on{background:linear-gradient(160deg,#FFD65C,#FFB400);box-shadow:none}
-.panel-grid.done i.on{background:linear-gradient(160deg,#4FCB91,#2E9E6A)}
-.panel-grid i.on{animation:light .35s both}
-@keyframes light{from{opacity:.2}}
-.hero-foot{grid-column:1/-1;display:flex;gap:10px 22px;flex-wrap:wrap;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)}
-.hero-foot div{min-width:0}
-.hero-foot b{display:block;font-size:20px;font-weight:800;font-stretch:80%}
-.hero-foot span{font-size:12.5px;color:rgba(255,255,255,.65)}
-.hero-foot .cur{flex:1 1 200px}
-.hero-foot .cur b{font-size:16px;font-stretch:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px}
-@media(max-width:480px){.hero{grid-template-columns:1fr;gap:14px}.hero-num{font-size:60px}}
+/* ---------- bandeau d'avancement ---------- */
+.prog{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;transition:border-color .15s}
+.prog:hover{border-color:var(--muted)}
+.prog-num{font-size:27px;font-weight:800;font-stretch:76%;font-variant-numeric:tabular-nums;line-height:1;flex:none}
+.prog-num small{font-size:14px;color:var(--muted)}
+.prog-main{flex:1;min-width:0}
+.phases{display:flex;gap:3px;height:12px}
+.phase{flex:1;min-width:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:2px;overflow:hidden}
+.phase i{display:block;height:100%;background:var(--accent)}
+.phase.done{border-color:transparent}
+.phase.done i{background:var(--success)}
+.prog-cap{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.prog-cap b{color:var(--text);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog-cap .tail{margin-left:auto;flex:none;padding-left:10px}
+
+/* ---------- zones de la page projet ---------- */
+.zone{margin-bottom:26px}
+.zone-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.zone-head h2{flex:1;font-size:17px;font-weight:750;font-stretch:85%}
+@media(min-width:960px){.two-col{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}.two-col .zone{margin-bottom:0}}
+.more-btn{width:100%;height:40px;border-radius:8px;border:1px dashed var(--border);font-size:13.5px;font-weight:650;color:var(--muted)}
+.more-btn:hover{border-color:var(--muted);color:var(--text)}
 
 .quicklinks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
 .ql{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:14px;min-width:0;transition:border-color .15s}
@@ -626,7 +631,7 @@ function renderHome() {
   const ps = state.projects, tot = ps.length;
   const open = ps.reduce((a, p) => a + openReq(p), 0);
   const avg = tot ? Math.round(ps.reduce((a, p) => a + progress(p), 0) / tot) : 0;
-  $('#app').innerHTML = `<div class="wrap">
+  $('#app').innerHTML = `<div class="wrap has-fab">
     <header class="appbar">
       <div class="brand">${logo()}<div><h1>Suivi Chantiers</h1><p>Chefs de projet et conducteurs de travaux</p></div></div>
       <button class="btn btn-ghost btn-sm hide-sm" data-act="global">${ic('table', 17)} Vue globale</button>
@@ -767,43 +772,50 @@ function projectForm(p) {
 /* =========================================================
    Page projet
    ========================================================= */
-const TABS = [['demandes', 'Demandes', 'wrench'], ['rapports', 'Comptes rendus', 'doc'], ['etapes', 'Étapes', 'layers'], ['liens', 'Documents', 'link'], ['contacts', 'Contacts', 'contact'], ['equipe', 'Équipe', 'users']];
-let reqFilter = 'actives';
+const TABS = [['suivi', 'Suivi', 'wrench'], ['etapes', 'Étapes', 'layers'], ['liens', 'Documents', 'link'], ['contacts', 'Contacts', 'contact'], ['equipe', 'Équipe', 'users']];
+let reqFilter = 'actives', crAll = false;
 
 function renderProject(p, tab) {
-  if (!TABS.some(t => t[0] === tab)) tab = 'demandes';
-  const pct = progress(p);
+  if (tab === 'demandes' || tab === 'rapports') tab = 'suivi';
+  if (!TABS.some(t => t[0] === tab)) tab = 'suivi';
+  const pct = progress(p), n = p.steps.length;
   const done = p.steps.filter(s => (s.progress || 0) >= 100).length;
-  const counts = { demandes: openReq(p), rapports: p.reports.length, etapes: p.steps.length, liens: p.links.plans.length + p.links.photos.length + p.links.planning.length, contacts: p.contacts.length, equipe: p.users.length };
+  const counts = { suivi: openReq(p), etapes: n, liens: p.links.plans.length + p.links.photos.length + p.links.planning.length, contacts: p.contacts.length, equipe: p.users.length };
   const mapUrl = p.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address) : '';
-  const lit = Math.round(pct / 2.5);
-  let cells = ''; for (let i = 0; i < 40; i++) cells += `<i class="${i < lit ? 'on' : ''}" style="animation-delay:${i * 12}ms"></i>`;
+  const phases = n
+    ? p.steps.map(s => `<span class="phase ${(s.progress || 0) >= 100 ? 'done' : ''}" title="${esc(s.name)} : ${s.progress || 0} %"><i style="width:${clamp(s.progress || 0, 0, 100)}%"></i></span>`).join('')
+    : '<span class="phase"><i style="width:0"></i></span>';
   $('#app').innerHTML = `<div class="wrap">
     <header class="appbar">
       <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
       <div class="titlebox"><h1>${esc(p.name)}</h1>${p.address ? `<a href="${mapUrl}" target="_blank" rel="noopener" title="Ouvrir dans Google Maps">${ic('pin', 13)}<span>${esc(p.address)}</span></a>` : '<span class="hint">Adresse non renseignée</span>'}</div>
       <button class="icon-btn" data-act="edit-project" data-id="${p.id}" aria-label="Modifier le projet">${ic('edit')}</button>
     </header>
-    <section class="hero" aria-label="Avancement du projet">
-      <div><div class="hero-num">${pct}<small>%</small></div><div class="hero-cap">Avancement global</div></div>
-      <div class="panel-grid ${pct >= 100 ? 'done' : ''}" aria-hidden="true">${cells}</div>
-      <div class="hero-foot">
-        <div class="cur"><span>Étape en cours</span><b>${esc(currentStep(p))}</b></div>
-        <div><b>${done}/${p.steps.length}</b><span>Étapes terminées</span></div>
-        <div><b>${openReq(p)}</b><span>Demandes ouvertes</span></div>
-        <div><b>${p.reports.length}</b><span>Comptes rendus</span></div>
-      </div>
-    </section>
+    <a class="prog" href="#/p/${p.id}/etapes" aria-label="Avancement ${pct} %, ouvrir les étapes">
+      <span class="prog-num">${pct}<small>%</small></span>
+      <span class="prog-main">
+        <span class="phases" aria-hidden="true">${phases}</span>
+        <span class="prog-cap">${ic('layers', 14)}<b>${esc(currentStep(p))}</b><span class="tail">${n ? `${done}/${n} étapes` : 'Aucune étape'}</span></span>
+      </span>
+    </a>
     <div class="quicklinks">${Object.entries(LINK_CATS).map(([k, c]) => quickLink(p, k, c)).join('')}</div>
     <nav class="tabs" role="tablist">${TABS.map(([k, l, i]) => `<a class="tab ${k === tab ? 'active' : ''}" href="#/p/${p.id}/${k}" role="tab" aria-selected="${k === tab}">${ic(i, 17)}<span>${l}</span>${counts[k] ? `<span class="count">${counts[k]}</span>` : ''}</a>`).join('')}</nav>
     <div class="panel" id="panel">${renderTab(p, tab)}</div>
-  </div>
-  <button class="fab" data-act="fab" data-id="${p.id}" data-tab="${tab}" aria-label="${fabLabel(tab)}" title="${fabLabel(tab)}">${ic(tab === 'equipe' ? 'edit' : 'plus', tab === 'equipe' ? 24 : 28)}</button>`;
+  </div>`;
   bindTab(p, tab);
   const at = $('.tab.active'); if (at) at.parentElement.scrollLeft = at.offsetLeft - 16;
 }
-function fabLabel(tab) {
-  return { demandes: "Nouvelle demande d'intervention", rapports: 'Nouveau compte rendu', etapes: 'Nouvelle étape', liens: 'Ajouter un lien', contacts: 'Nouveau contact', equipe: 'Gérer les utilisateurs' }[tab];
+function tabSuivi(p) {
+  return `<div class="two-col">
+    <section class="zone">
+      <div class="zone-head"><h2>Demandes d'intervention</h2><button class="btn btn-ghost btn-sm" data-act="new-request" data-id="${p.id}">${ic('plus', 15)} Demande</button></div>
+      ${tabDemandes(p)}
+    </section>
+    <section class="zone">
+      <div class="zone-head"><h2>Comptes rendus</h2><button class="btn btn-ghost btn-sm" data-act="new-report" data-id="${p.id}">${ic('plus', 15)} Compte rendu</button></div>
+      ${tabRapports(p)}
+    </section>
+  </div>`;
 }
 function quickLink(p, k, c) {
   const ls = p.links[k], n = ls.length, href = n === 1 ? safeUrl(ls[0].url) : '';
@@ -812,7 +824,7 @@ function quickLink(p, k, c) {
   return `<a class="ql" href="#/p/${p.id}/liens" ${n ? '' : `data-act="add-link" data-id="${p.id}" data-cat="${k}"`}>${inner}</a>`;
 }
 function renderTab(p, tab) {
-  return ({ demandes: tabDemandes, rapports: tabRapports, etapes: tabEtapes, liens: tabLiens, contacts: tabContacts, equipe: tabEquipe })[tab](p);
+  return ({ suivi: tabSuivi, etapes: tabEtapes, liens: tabLiens, contacts: tabContacts, equipe: tabEquipe })[tab](p);
 }
 function bindTab(p, tab) {
   const panel = $('#panel');
@@ -945,7 +957,9 @@ function tabRapports(p) {
   if (!p.reports.length) return emptyState('doc', 'Aucun compte rendu',
     "Rédigez un compte rendu d'intervention. Une fois validé, il est envoyé par e-mail à tous les utilisateurs du projet.",
     `<button class="btn btn-primary" data-act="new-report" data-id="${p.id}">${ic('plus', 18)} Nouveau compte rendu</button>`);
-  const list = [...p.reports].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
+  const all = [...p.reports].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
+  const list = crAll ? all : all.slice(0, 5);
+  const rest = all.length - list.length;
   return `<div class="list">${list.map(r => {
     const d = toDate(r.date);
     return `<div class="item" data-act="view-report" data-id="${p.id}" data-rid="${r.id}" tabindex="0">
@@ -960,7 +974,7 @@ function tabRapports(p) {
         </div>
       </div>
     </div>`;
-  }).join('')}</div>`;
+  }).join('')}${rest > 0 ? `<button class="more-btn" data-act="cr-all">Afficher les ${rest} plus anciens</button>` : ''}</div>`;
 }
 function reportForm(p, r) {
   const isNew = !r, wasSent = r && r.status === 'valide';
@@ -1190,7 +1204,8 @@ function tabContacts(p) {
   if (!p.contacts.length) return emptyState('contact', 'Aucun contact',
     'Ajoutez les contacts liés au chantier : client, bureau de contrôle, gestionnaire de réseau, sous-traitants, fournisseurs.',
     `<button class="btn btn-primary" data-act="new-contact" data-id="${p.id}">${ic('plus', 18)} Nouveau contact</button>`);
-  return `<div class="list">${[...p.contacts].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map(c => `<div class="contact">
+  return `<div class="zone-head"><h2>Contacts du chantier</h2><button class="btn btn-ghost btn-sm" data-act="new-contact" data-id="${p.id}">${ic('plus', 15)} Contact</button></div>
+  <div class="list">${[...p.contacts].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map(c => `<div class="contact">
     ${avatar(c.name, 'lg')}
     <div class="item-main" data-act="edit-contact" data-id="${p.id}" data-cid="${c.id}" tabindex="0">
       <div class="item-title">${esc(c.name)}</div>
@@ -1422,11 +1437,8 @@ const ACTS = {
   demo: () => { state.projects.push(demoProject()); save(); toast('Projet exemple ajouté'); rerender(); },
   'open-project': el => { if (suppressClick) { suppressClick = false; return; } go('#/p/' + el.dataset.id); },
   'edit-project': el => { const p = findP(el); if (p) projectForm(p); },
-  fab: el => {
-    const p = findP(el); if (!p) return;
-    ({ demandes: () => requestForm(p), rapports: () => reportForm(p), etapes: () => stepForm(p), liens: () => linkForm(p, null, 'plans'), contacts: () => contactForm(p), equipe: () => projectForm(p) })[el.dataset.tab]();
-  },
   'req-filter': el => { reqFilter = el.dataset.f; rerender(); },
+  'cr-all': () => { crAll = true; rerender(); },
   'new-request': el => requestForm(findP(el)),
   'view-request': el => { const p = findP(el), r = p && p.requests.find(x => x.id === el.dataset.rid); if (r) viewRequest(p, r); },
   'new-report': el => reportForm(findP(el)),
