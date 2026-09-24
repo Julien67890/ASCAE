@@ -7,10 +7,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Chantiers">
-<title>Suivi Chantiers</title>
+<meta name="apple-mobile-web-app-title" content="ASCAE C&amp;I">
+<title>ASCAE C&amp;I</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,9 +62,9 @@ a{color:inherit;text-decoration:none}
 /* ---------- barre haute ---------- */
 .appbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;height:70px;margin:0 -16px;padding:0 16px;background:var(--bg)}
 .brand{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
-.logo{width:42px;height:42px;border-radius:10px;background:var(--hero);display:grid;place-items:center;color:var(--accent);flex:none}
+.logo{width:42px;height:42px;border-radius:10px;background:var(--hero);object-fit:contain;padding:3px;flex:none;display:block}
 .brand h1,.titlebox h1{font-stretch:78%;font-weight:800;letter-spacing:-.01em;line-height:1.1}
-.brand h1{font-size:23px}
+.brand h1{font-size:23px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brand p{font-size:12.5px;color:var(--muted)}
 .titlebox{flex:1;min-width:0}
 .titlebox h1{font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -384,7 +384,7 @@ td .avatars{margin-left:0}
 #au-form[hidden]{display:none}
 .auth-box{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;box-shadow:var(--shadow)}
 .auth-mark{width:52px;height:52px;border-radius:12px;background:var(--hero);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
-.auth-mark svg{color:var(--accent)}
+.auth-mark img{display:block;object-fit:contain;padding:3px}
 .auth h1{font-size:21px;font-weight:750;text-align:center;letter-spacing:-.01em}
 .auth-sub{text-align:center;color:var(--muted);font-size:13.5px;margin:6px 0 22px}
 .auth .field{margin-bottom:14px}
@@ -400,14 +400,22 @@ td .avatars{margin-left:0}
 .acct{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px}
 .acct b{display:block;font-size:13.5px;word-break:break-all}
 .acct small{color:var(--muted);font-size:12px}
+.byline{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:13.5px}
+.byline span{flex:1}
+.linked{display:grid;gap:6px;margin-bottom:4px}
+.linked-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px}
+.linked-row:hover{border-color:var(--muted)}
+.linked-row>span:nth-child(2){flex:1;min-width:0}
+.linked-row b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.linked-row small{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="auth" class="auth" data-boot>
   <div class="auth-box">
-    <div class="auth-mark"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg></div>
-    <h1>Suivi Chantiers</h1>
+    <div class="auth-mark"><img src="logo.png" alt="" width="52" height="52" decoding="async"></div>
+    <h1>ASCAE C&amp;I</h1>
     <p class="auth-sub" id="au-sub">Connexion en cours…</p>
     <div id="au-form" hidden>
     <div class="field"><label for="au-mail">Adresse e-mail</label><input id="au-mail" type="email" autocomplete="username" inputmode="email" placeholder="prenom.nom@apexenergies.fr"></div>
@@ -505,6 +513,12 @@ function save() {
   pushChanges();
 }
 const getP = id => state.projects.find(p => p.id === id);
+/* Rédacteur courant : nom renseigné, sinon nom du compte, sinon adresse. */
+function meName() {
+  return state.settings.userName
+    || (FB.user && FB.user.displayName)
+    || FB.email || '';
+}
 function touch(p) { p.updatedAt = Date.now(); save(); }
 
 
@@ -725,7 +739,6 @@ const LINK_CATS = {
   planning: { l: 'Planning', ic: 'calendar', col: '#B87900', empty: 'Aucun lien vers le planning.' }
 };
 const PV_TEMPLATE = ['Études et autorisations', 'Approvisionnement matériel', 'Préparation du site', 'Structure et supportage', 'Pose des modules', 'Câblage DC', 'Onduleurs et raccordement AC', 'Mise en service', 'Réception et DOE'];
-const WEATHER = ['', 'Ensoleillé', 'Nuageux', 'Pluie', 'Vent fort', 'Orage', 'Gel ou neige'];
 const CONTACT_ROLES = ['Client', "Maître d'œuvre", 'Bureau de contrôle', 'Coordinateur SPS', 'Gestionnaire de réseau', 'Sous-traitant', 'Fournisseur', 'Électricien', 'Couvreur'];
 
 /* =========================================================
@@ -757,6 +770,12 @@ function currentStep(p) {
   if (!p.steps.length) return 'Étapes à définir';
   const s = p.steps.find(s => (s.progress || 0) < 100);
   return s ? s.name : 'Toutes les étapes terminées';
+}
+/* Libellé du bandeau : « Montage charpente en cours » */
+function currentStepLabel(p) {
+  if (!p.steps.length) return 'Étapes à définir';
+  const s = p.steps.find(s => (s.progress || 0) < 100);
+  return s ? s.name + ' en cours' : 'Toutes les étapes terminées';
 }
 const openReq = p => p.requests.filter(r => r.status !== 'terminee').length;
 const lateReq = p => p.requests.filter(r => r.status !== 'terminee' && r.dueDate && r.dueDate < today()).length;
@@ -807,7 +826,7 @@ const I = {
   alert: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>'
 };
 const ic = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n] || ''}</svg>`;
-const logo = () => `<div class="logo">${ic('panel', 24)}</div>`;
+const logo = () => `<img class="logo" src="logo.png" alt="" width="40" height="40" decoding="async">`;
 const emptyState = (i, t, x, a) => `<div class="empty"><div class="em-ic">${ic(i, 28)}</div><h3>${t}</h3><p>${x}</p>${a ? `<div class="row">${a}</div>` : ''}</div>`;
 
 /* =========================================================
@@ -923,7 +942,7 @@ function renderHome() {
   const avg = tot ? Math.round(ps.reduce((a, p) => a + progress(p), 0) / tot) : 0;
   $('#app').innerHTML = `<div class="wrap has-fab">
     <header class="appbar">
-      <div class="brand">${logo()}<div><h1>Suivi Chantiers</h1><p>Chefs de projet et conducteurs de travaux</p></div></div>
+      <div class="brand">${logo()}<h1>ASCAE C&amp;I</h1></div>
       <button class="btn btn-ghost btn-sm hide-sm" data-act="global">${ic('table', 17)} Vue globale</button>
       <button class="icon-btn show-sm" data-act="global" aria-label="Vue globale">${ic('table')}</button>
       <button class="icon-btn" data-act="settings" aria-label="Paramètres">${ic('sliders')}</button>
@@ -1085,7 +1104,7 @@ function renderProject(p, tab) {
       <span class="prog-num">${pct}<small>%</small></span>
       <span class="prog-main">
         <span class="phases" aria-hidden="true">${phases}</span>
-        <span class="prog-cap">${ic('layers', 14)}<b>${esc(currentStep(p))}</b><span class="tail">${n ? `${done}/${n} étapes` : 'Aucune étape'}</span></span>
+        <span class="prog-cap">${ic('layers', 14)}<b>${esc(currentStepLabel(p))}</b><span class="tail">${n ? `${done}/${n} étapes` : 'Aucune étape'}</span></span>
       </span>
     </a>
     <div class="quicklinks">${Object.entries(LINK_CATS).map(([k, c]) => quickLink(p, k, c)).join('')}</div>
@@ -1212,7 +1231,18 @@ function viewRequest(p, r) {
         <div><dt>Échéance</dt><dd class="${overdue ? 'meta overdue' : ''}">${r.dueDate ? fmtDate(r.dueDate) : 'Non définie'}</dd></div>
         <div class="full"><dt>Créée le</dt><dd>${fmtDate(r.createdAt)}${r.createdBy ? ' par ' + esc(r.createdBy) : ''}</dd></div>
       </dl>
-      ${r.description ? `<div class="flabel">Description</div><p class="prewrap">${esc(r.description)}</p>` : ''}`,
+      ${r.description ? `<div class="flabel">Description</div><p class="prewrap">${esc(r.description)}</p>` : ''}
+      <div class="flabel mt">Comptes rendus d'intervention</div>
+      ${(() => {
+        const rs = p.reports.filter(x => x.requestId === r.id)
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        return rs.length
+          ? `<div class="linked">${rs.map(x => `<button type="button" class="linked-row" data-cr="${x.id}">
+              ${ic('doc', 16)}<span><b>${esc(x.title || 'Compte rendu')}</b><small>${fmtDate(x.date)}${x.author ? ' — ' + esc(x.author) : ''}</small></span>
+              <span class="pill ${x.status === 'valide' ? 'st-valide' : 'st-brouillon'}">${x.status === 'valide' ? 'Validé' : 'Brouillon'}</span></button>`).join('')}</div>`
+          : `<p class="hint">Aucun compte rendu rattaché à cette demande.</p>`;
+      })()}
+      <button type="button" class="btn btn-ghost btn-block mt" id="rq-cr">${ic('plus', 17)} Rédiger un compte rendu</button>`,
     foot: `<button class="btn btn-ghost btn-icon danger" id="rq-del" aria-label="Supprimer la demande">${ic('trash', 18)}</button><button class="btn btn-ghost" id="rq-edit">${ic('edit', 17)} Modifier</button><button class="btn btn-primary" id="rq-mail">${ic('mail', 17)} Envoyer</button>`,
     onMount(sh) {
       $('#seg', sh).onclick = e => {
@@ -1221,6 +1251,14 @@ function viewRequest(p, r) {
         touch(p); $$('#seg button', sh).forEach(x => x.classList.toggle('active', x === b));
         rerender(); toast('Statut : ' + REQ_STATUS[r.status].l);
       };
+      $('#rq-cr', sh).onclick = () => {
+        closeSheet();
+        reportForm(p, null, { requestId: r.id, title: r.title });
+      };
+      $$('.linked-row', sh).forEach(b => b.onclick = () => {
+        const rep2 = p.reports.find(x => x.id === b.dataset.cr);
+        if (rep2) { closeSheet(); viewReport(p, rep2); }
+      });
       $('#rq-edit', sh).onclick = () => { closeSheet(); requestForm(p, r); };
       $('#rq-mail', sh).onclick = () => { closeSheet(); mailSheet(requestMail(p, r)); };
       $('#rq-del', sh).onclick = async () => {
@@ -1266,22 +1304,32 @@ function tabRapports(p) {
     </div>`;
   }).join('')}${rest > 0 ? `<button class="more-btn" data-act="cr-all">Afficher les ${rest} plus anciens</button>` : ''}</div>`;
 }
-function reportForm(p, r) {
+function linkedRequest(p, r) {
+  return (r && r.requestId) ? p.requests.find(q => q.id === r.requestId) || null : null;
+}
+function reportForm(p, r, opts) {
   const isNew = !r, wasSent = r && r.status === 'valide';
-  const d = r || { date: today(), title: '', author: state.settings.userName || '', weather: '', presents: '', works: '', observations: '', actions: '' };
+  const o = opts || {};
+  const d = r || {
+    date: today(), title: o.title || '', author: meName(),
+    requestId: o.requestId || '', presents: '', works: '', observations: '', actions: ''
+  };
   const recips = p.users.filter(u => u.email);
+  const openReqs = [...p.requests].sort((a, b) =>
+    (ST_ORD[a.status] - ST_ORD[b.status]) || (b.createdAt - a.createdAt));
   openSheet({
     title: isNew ? 'Nouveau compte rendu' : 'Modifier le compte rendu', size: 'lg',
     body: `<form id="crf" novalidate>
       <div class="grid2">
         <div class="field"><label for="cr-date">Date d'intervention</label><input id="cr-date" type="date" name="date" value="${esc(d.date)}"></div>
-        <div class="field"><label for="cr-w">Météo</label><select id="cr-w" name="weather">${WEATHER.map(w => `<option value="${w}" ${w === d.weather ? 'selected' : ''}>${w || 'Non précisée'}</option>`).join('')}</select></div>
-      </div>
-      <div class="field"><label for="cr-t">Objet</label><input id="cr-t" name="title" value="${esc(d.title)}" placeholder="Visite de chantier hebdomadaire" autofocus></div>
-      <div class="grid2">
-        <div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" list="cr-authors" value="${esc(d.author)}" placeholder="Votre nom"><datalist id="cr-authors">${p.users.map(u => `<option value="${esc(u.name)}">`).join('')}</datalist></div>
         <div class="field"><label for="cr-pr">Présents</label><input id="cr-pr" name="presents" value="${esc(d.presents || '')}" placeholder="Client, équipe de pose"></div>
       </div>
+      <div class="field"><label for="cr-t">Objet</label><input id="cr-t" name="title" value="${esc(d.title)}" placeholder="Visite de chantier hebdomadaire" autofocus></div>
+      ${openReqs.length ? `<div class="field"><label for="cr-rq">Demande d'intervention liée</label>
+        <select id="cr-rq" name="requestId"><option value="">Aucune</option>${openReqs.map(q =>
+          `<option value="${q.id}" ${q.id === (d.requestId || '') ? 'selected' : ''}>${esc(q.title)} — ${REQ_STATUS[q.status].l.toLowerCase()}</option>`).join('')}</select></div>` : ''}
+      ${meName() ? `<div class="byline">${avatar(d.author || meName(), 'xs')}<span>Rédigé par <b>${esc(d.author || meName())}</b></span><button type="button" class="linklike" id="cr-who">Ce n'est pas moi</button></div>`
+        : `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" value="" placeholder="Votre nom, mémorisé pour les prochains comptes rendus"></div>`}
       <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
       <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
       <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
@@ -1295,10 +1343,20 @@ function reportForm(p, r) {
     onMount(sh) {
       bindRanges(sh);
       const f = $('#crf', sh);
+      const who = $('#cr-who', sh);
+      if (who) who.onclick = () => {
+        const line = who.closest('.byline');
+        line.outerHTML = `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" list="cr-authors" value="" placeholder="Nom du rédacteur" autofocus><datalist id="cr-authors">${p.users.map(u => `<option value="${esc(u.name)}">`).join('')}</datalist></div>`;
+        const inp = $('#cr-a', sh); if (inp) inp.focus();
+      };
       const persist = send => {
         const E = f.elements;
         if (!E.date.value) { E.date.classList.add('invalid'); toast("Indiquez la date d'intervention"); return null; }
-        const data = { date: E.date.value, weather: E.weather.value, title: E.title.value.trim(), author: E.author.value.trim(), presents: E.presents.value.trim(), works: E.works.value.trim(), observations: E.observations.value.trim(), actions: E.actions.value.trim() };
+        const author = (E.author ? E.author.value.trim() : '') || d.author || meName();
+        const data = { date: E.date.value, title: E.title.value.trim(), author,
+          requestId: E.requestId ? E.requestId.value : (d.requestId || ''),
+          presents: E.presents.value.trim(), works: E.works.value.trim(),
+          observations: E.observations.value.trim(), actions: E.actions.value.trim() };
         $$('[data-step]', sh).forEach(i => { const s = p.steps.find(x => x.id === i.dataset.step); if (s) s.progress = +i.value; });
         let rep = r;
         if (isNew) { rep = { id: uid(), createdAt: Date.now(), ...data }; p.reports.push(rep); } else Object.assign(rep, data);
@@ -1306,7 +1364,7 @@ function reportForm(p, r) {
         rep.progressAt = progress(p);
         rep.stepsSnapshot = p.steps.map(s => ({ name: s.name, progress: s.progress || 0 }));
         if (send) rep.sentAt = Date.now();
-        if (state.settings.userName === '' && data.author) state.settings.userName = data.author;
+        if (state.settings.userName === '' && data.author && data.author !== FB.email) state.settings.userName = data.author;
         touch(p); return rep;
       };
       $('#cr-draft', sh).onclick = () => { const rep = persist(false); if (rep) { closeSheet(); toast(wasSent ? 'Compte rendu enregistré' : 'Brouillon enregistré'); rerender(); } };
@@ -1319,7 +1377,8 @@ function reportMail(p, r) {
   const to = p.users.filter(u => u.email).map(u => u.email);
   const L = ["COMPTE RENDU D'INTERVENTION", '', `Projet : ${p.name}`];
   if (p.address) L.push(`Adresse : ${p.address}`);
-  L.push(`Date : ${fmtDate(r.date)}${r.weather ? ` (météo : ${r.weather.toLowerCase()})` : ''}`);
+  L.push(`Date : ${fmtDate(r.date)}`);
+  { const q = linkedRequest(p, r); if (q) L.push(`Suite à la demande : ${q.title}`); }
   if (r.author) L.push(`Rédigé par : ${r.author}`);
   if (r.presents) L.push(`Présents : ${r.presents}`);
   L.push(`Avancement global : ${r.progressAt != null ? r.progressAt : progress(p)} %`);
@@ -1337,10 +1396,11 @@ function viewReport(p, r) {
   openSheet({
     title: 'Compte rendu', size: 'lg',
     body: `<h3 class="detail-title">${esc(r.title || "Compte rendu d'intervention")}</h3>
-      <div class="item-meta"><span class="pill ${sent ? 'st-valide' : 'st-brouillon'}">${sent ? 'Validé et diffusé' : 'Brouillon'}</span>${r.weather ? `<span class="meta">${esc(r.weather)}</span>` : ''}</div>
+      <div class="item-meta"><span class="pill ${sent ? 'st-valide' : 'st-brouillon'}">${sent ? 'Validé et diffusé' : 'Brouillon'}</span>${(() => { const q = linkedRequest(p, r); return q ? `<span class="meta">${ic('wrench', 13)}${esc(q.title)}</span>` : ''; })()}</div>
       <dl class="dl">
         <div><dt>Date</dt><dd>${d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</dd></div>
         <div><dt>Rédigé par</dt><dd>${r.author ? avatar(r.author, 'xs') + esc(r.author) : '—'}</dd></div>
+        ${(() => { const q = linkedRequest(p, r); return q ? `<div class="full"><dt>Demande liée</dt><dd><button type="button" class="linklike" data-act="view-request" data-id="${p.id}" data-rid="${q.id}">${esc(q.title)}</button></dd></div>` : ''; })()}
         ${r.presents ? `<div class="full"><dt>Présents</dt><dd>${esc(r.presents)}</dd></div>` : ''}
         <div><dt>Avancement à cette date</dt><dd>${r.progressAt != null ? r.progressAt + ' %' : '—'}</dd></div>
         <div><dt>Dernière diffusion</dt><dd>${r.sentAt ? fmtDate(r.sentAt) : 'Pas encore envoyé'}</dd></div>
@@ -1717,7 +1777,7 @@ function demoProject() {
     createdAt: Date.now(), updatedAt: Date.now()
   };
   p.reports.push({
-    id: uid(), createdAt: Date.now() - 3 * 864e5, date: dayOffset(-3), weather: 'Ensoleillé', title: 'Visite de chantier hebdomadaire', author: 'Claire Dubois', presents: 'Marc Lefèvre, équipe de pose',
+    id: uid(), createdAt: Date.now() - 3 * 864e5, date: dayOffset(-3), title: 'Visite de chantier hebdomadaire', author: 'Claire Dubois', presents: 'Marc Lefèvre, équipe de pose',
     works: 'Fin du montage des structures sur les travées 1 à 5. Début de la pose des modules sur la travée 1.',
     observations: 'Serrage non conforme sur la travée 3. Zone de stockage à dégager avant la livraison des onduleurs.',
     actions: 'Marc : reprise du serrage travée 3 avant la fin de semaine. Commande du complément de visserie.',
