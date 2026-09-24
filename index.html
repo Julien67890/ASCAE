@@ -408,6 +408,15 @@ td .avatars{margin-left:0}
 .linked-row>span:nth-child(2){flex:1;min-width:0}
 .linked-row b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .linked-row small{color:var(--muted);font-size:12px}
+.mine-bar{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--info-bg);color:var(--info);border:1px solid currentColor;border-radius:11px;padding:12px 14px;margin-bottom:14px;font-size:14px}
+.mine-bar.late{background:var(--warn-bg);color:var(--warning)}
+.mine-bar.on{box-shadow:inset 0 0 0 1px currentColor}
+.mine-bar>span:nth-child(2){flex:1;min-width:0}
+.mine-bar b{display:block;font-weight:700}
+.mine-bar small{display:block;font-size:12px;opacity:.85}
+.mine-bar .mine-cta{flex:none;font-size:12.5px;font-weight:700;text-decoration:underline;opacity:.9}
+.chip.mine{background:var(--info-bg);color:var(--info);border:1px solid currentColor;font-weight:700}
+.chip.mine.late{background:var(--warn-bg);color:var(--warning)}
 </style>
 </head>
 <body>
@@ -779,6 +788,15 @@ function currentStepLabel(p) {
 }
 const openReq = p => p.requests.filter(r => r.status !== 'terminee').length;
 const lateReq = p => p.requests.filter(r => r.status !== 'terminee' && r.dueDate && r.dueDate < today()).length;
+/* L'utilisateur connecté, tel qu'inscrit dans l'équipe du projet. */
+const meInProject = p => FB.email ? (p.users || []).find(u => lowerMail(u.email) === FB.email) : null;
+/* Ses demandes non terminées sur ce projet. */
+function myReqs(p) {
+  const me = meInProject(p);
+  if (!me) return [];
+  return p.requests.filter(r => r.assigneeId === me.id && r.status !== 'terminee');
+}
+const myLate = p => myReqs(p).filter(r => r.dueDate && r.dueDate < today()).length;
 function lastReport(p) { return [...p.reports].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; }
 function matches(p, q) {
   if (!q) return true; const t = norm(q);
@@ -811,6 +829,7 @@ const I = {
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
   contact: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17a4 4 0 0 1 8 0"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
+  'user-check': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 12 0"/><path d="m16 12 2 2 4-4"/>',
   send: '<path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
@@ -936,6 +955,7 @@ window.addEventListener('hashchange', route);
    Accueil : liste des projets
    ========================================================= */
 let homeQuery = '';
+let mineOnly = false;
 function renderHome() {
   const ps = state.projects, tot = ps.length;
   const open = ps.reduce((a, p) => a + openReq(p), 0);
@@ -949,6 +969,15 @@ function renderHome() {
     </header>
     <div class="search">${ic('search', 19)}<input id="q" type="search" placeholder="Rechercher un projet, une adresse, un intervenant" value="${esc(homeQuery)}" autocomplete="off" enterkeyhint="search"></div>
     ${tot ? `<div class="kpis"><div class="kpi"><b>${tot}</b><span>${tot > 1 ? 'Projets' : 'Projet'}</span></div><div class="kpi"><b>${avg}%</b><span>Avancement moyen</span></div><div class="kpi ${open ? '' : ''}"><b>${open}</b><span>Demandes ouvertes</span></div></div>` : ''}
+    ${(() => {
+      const n = ps.reduce((a, p) => a + myReqs(p).length, 0);
+      if (!n) return '';
+      const late = ps.reduce((a, p) => a + myLate(p), 0);
+      return `<button class="mine-bar ${mineOnly ? 'on' : ''} ${late ? 'late' : ''}" data-act="mine-toggle" aria-pressed="${mineOnly}">
+        ${ic(late ? 'alert' : 'wrench', 18)}
+        <span><b>${plural(n, 'demande')} pour vous</b>${late ? `<small>${late} en retard</small>` : ''}</span>
+        <span class="mine-cta">${mineOnly ? 'Tout afficher' : 'Voir'}</span></button>`;
+    })()}
     <div class="section-head"><h2>Projets</h2>${tot ? '<span class="hint">Appui long sur un projet pour le supprimer</span>' : ''}</div>
     <div id="plist-wrap"></div>
   </div>
@@ -965,8 +994,16 @@ function renderProjectList() {
       `<button class="btn btn-primary" data-act="new-project">${ic('plus', 18)} Nouveau projet</button><button class="btn btn-ghost" data-act="demo">Charger un projet exemple</button>`);
     return;
   }
-  const list = state.projects.filter(p => matches(p, homeQuery)).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-  if (!list.length) { w.innerHTML = emptyState('search', 'Aucun résultat', `Aucun projet ne correspond à « ${esc(homeQuery)} ».`, ''); return; }
+  let list = state.projects.filter(p => matches(p, homeQuery));
+  if (mineOnly) list = list.filter(p => myReqs(p).length);
+  /* Les projets où l'on est attendu passent devant. */
+  list.sort((a, b) => (myReqs(b).length ? 1 : 0) - (myReqs(a).length ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0));
+  if (!list.length) {
+    w.innerHTML = mineOnly
+      ? emptyState('check', 'Rien ne vous attend', "Aucune demande ne vous est assignée sur les projets affichés.", `<button class="btn btn-ghost" data-act="mine-toggle">Afficher tous les projets</button>`)
+      : emptyState('search', 'Aucun résultat', `Aucun projet ne correspond à « ${esc(homeQuery)} ».`, '');
+    return;
+  }
   w.innerHTML = `<ul class="plist">${list.map(cardHTML).join('')}</ul>`;
   $$('.pcard', w).forEach(attachLongPress);
 }
@@ -979,6 +1016,10 @@ function cardHTML(p) {
     </div>
     ${cellsHTML(pct)}
     <div class="pcard-meta">
+      ${(() => {
+        const mine = myReqs(p).length, ml = myLate(p);
+        return mine ? `<span class="chip mine ${ml ? 'late' : ''}">${ic(ml ? 'alert' : 'user-check', 13)}<span>${mine} pour vous${ml ? `, ${ml} en retard` : ''}</span></span>` : '';
+      })()}
       <span class="chip">${ic('layers', 13)}<span>${esc(currentStep(p))}</span></span>
       ${o ? `<span class="chip ${late ? 'warn' : ''}">${ic(late ? 'alert' : 'wrench', 13)}<span>${plural(o, 'demande')}${late ? ` dont ${late} en retard` : ''}</span></span>` : ''}
       <span class="avatars">${p.users.slice(0, 4).map(u => avatar(u.name)).join('')}${p.users.length > 4 ? `<span class="av more">+${p.users.length - 4}</span>` : ''}</span>
@@ -1798,6 +1839,7 @@ const ACTS = {
   demo: () => { const d = demoProject(); d.ownerEmail = FB.email; state.projects.push(d); save(); toast('Projet exemple ajouté'); rerender(); },
   'open-project': el => { if (suppressClick) { suppressClick = false; return; } go('#/p/' + el.dataset.id); },
   'edit-project': el => { const p = findP(el); if (p) projectForm(p); },
+  'mine-toggle': () => { mineOnly = !mineOnly; rerender(); },
   'req-filter': el => { reqFilter = el.dataset.f; rerender(); },
   'cr-all': () => { crAll = true; rerender(); },
   'new-request': el => requestForm(findP(el)),
