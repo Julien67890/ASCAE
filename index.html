@@ -269,6 +269,7 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .notice.warn{background:var(--warn-bg)}
 .notice.warn .ic{color:var(--warning)}
 .mt{margin-top:14px}
+.mb{margin-bottom:16px}
 
 /* ---------- feuilles (modales) ---------- */
 #sheet-root,#dialog-root{position:fixed;inset:0;z-index:100;display:none}
@@ -375,14 +376,82 @@ td .avatars{margin-left:0}
 .toast{background:var(--text);color:var(--bg);padding:11px 16px;border-radius:8px;font-size:14px;font-weight:650;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:toastIn .22s ease-out;text-align:center}
 .toast.out{opacity:0;transform:translateY(6px);transition:.2s}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}}
+
+/* --- Connexion et synchronisation --- */
+.auth{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
+.auth[hidden]{display:none}
+.auth[data-boot] .auth-sub{color:var(--muted)}
+#au-form[hidden]{display:none}
+.auth-box{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;box-shadow:var(--shadow)}
+.auth-mark{width:52px;height:52px;border-radius:12px;background:var(--hero);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.auth-mark svg{color:var(--accent)}
+.auth h1{font-size:21px;font-weight:750;text-align:center;letter-spacing:-.01em}
+.auth-sub{text-align:center;color:var(--muted);font-size:13.5px;margin:6px 0 22px}
+.auth .field{margin-bottom:14px}
+.auth-err{background:var(--danger-bg);color:var(--danger);border-radius:8px;padding:10px 12px;font-size:13.5px;margin-bottom:14px;font-weight:600}
+.auth-err[hidden]{display:none}
+.auth-alt{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.auth-link{background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;padding:6px;text-align:center}
+.auth-link:hover{color:var(--text)}
+.auth-foot{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px;text-align:center;line-height:1.5}
+.syncbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:120;display:flex;align-items:center;gap:8px;background:var(--warn-bg);color:var(--warning);border:1px solid currentColor;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:650;box-shadow:var(--shadow)}
+.syncbar[hidden]{display:none}
+.syncdot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.acct{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px}
+.acct b{display:block;font-size:13.5px;word-break:break-all}
+.acct small{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="auth" class="auth" data-boot>
+  <div class="auth-box">
+    <div class="auth-mark"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/></svg></div>
+    <h1>Suivi Chantiers</h1>
+    <p class="auth-sub" id="au-sub">Connexion en cours…</p>
+    <div id="au-form" hidden>
+    <div class="field"><label for="au-mail">Adresse e-mail</label><input id="au-mail" type="email" autocomplete="username" inputmode="email" placeholder="prenom.nom@apexenergies.fr"></div>
+    <div class="field"><label for="au-pass">Mot de passe</label><input id="au-pass" type="password" autocomplete="current-password" placeholder="Au moins 6 caractères"></div>
+    <p class="auth-err" id="au-err" hidden></p>
+    <button class="btn btn-primary btn-block" id="au-go">Se connecter</button>
+    <div class="auth-alt">
+      <button class="auth-link" id="au-mode">Premier accès ? Créer mon compte</button>
+      <button class="auth-link" id="au-forgot">Mot de passe oublié</button>
+    </div>
+    </div>
+    <p class="auth-foot">Vos chantiers sont synchronisés entre tous vos appareils. Vous ne voyez que les projets dont votre adresse fait partie de l'équipe.</p>
+  </div>
+</div>
+<div id="syncbar" class="syncbar" hidden><span class="syncdot"></span><span id="syncmsg"></span></div>
 <div id="sheet-root"></div>
 <div id="dialog-root"></div>
 <div id="toast-root" aria-live="polite"></div>
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, setDoc, deleteDoc, onSnapshot, query, where
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBRzjDgDUmmmFbLYlUJJOcE-fjfkvMp0aw",
+  authDomain: "ascae-26d67.firebaseapp.com",
+  projectId: "ascae-26d67",
+  storageBucket: "ascae-26d67.firebasestorage.app",
+  messagingSenderId: "465256413978",
+  appId: "1:465256413978:web:c56499cc4a8a6cd7414aa3"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const fbAuth = getAuth(fbApp);
+const fbDb = initializeFirestore(fbApp, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
+
 (() => {
 'use strict';
 
@@ -396,14 +465,30 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 
+const LS_PREFS = 'suivi-chantiers:prefs';
+
+/* Préférences d'appareil (nom, thème) : locales. Projets : Firestore. */
 let state = load();
 
 function load() {
+  const settings = { userName: '', theme: 'auto' };
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) { const d = JSON.parse(raw); if (d && Array.isArray(d.projects)) return normalize(d); }
+    const raw = localStorage.getItem(LS_PREFS);
+    if (raw) Object.assign(settings, JSON.parse(raw) || {});
+    else {
+      const old = localStorage.getItem(LS_KEY);
+      if (old) Object.assign(settings, (JSON.parse(old) || {}).settings || {});
+    }
   } catch (e) {}
-  return { projects: [], settings: { userName: '', theme: 'auto' } };
+  return { projects: [], settings };
+}
+/* Projets restés dans l'ancien stockage local, pour la reprise unique. */
+function legacyProjects() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+    if (d && Array.isArray(d.projects) && d.projects.length) return normalize(d).projects;
+  } catch (e) {}
+  return [];
 }
 function normalize(d) {
   d.settings = Object.assign({ userName: '', theme: 'auto' }, d.settings || {});
@@ -416,11 +501,216 @@ function normalize(d) {
   return d;
 }
 function save() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-  catch (e) { toast("Enregistrement impossible sur cet appareil"); }
+  try { localStorage.setItem(LS_PREFS, JSON.stringify(state.settings)); } catch (e) {}
+  pushChanges();
 }
 const getP = id => state.projects.find(p => p.id === id);
 function touch(p) { p.updatedAt = Date.now(); save(); }
+
+
+/* =========================================================
+   Synchronisation Firestore
+   ========================================================= */
+const FB = { user: null, email: '', ready: false, stop: null, pending: 0, online: navigator.onLine };
+const seenFp = new Map();          // id de projet -> empreinte de la dernière version connue
+const PROJETS = collection(fbDb, 'projets');
+
+/* Empreinte stable : clés triées, pour ne pas réécrire un projet inchangé. */
+const canon = o => JSON.stringify(o, (k, v) =>
+  (v && typeof v === 'object' && !Array.isArray(v))
+    ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]]))
+    : v);
+
+const lowerMail = m => String(m || '').trim().toLowerCase();
+
+/* Qui a le droit de lire ce projet : le créateur et toute l'équipe. */
+function memberEmailsOf(p) {
+  const set = new Set();
+  if (p.ownerEmail) set.add(lowerMail(p.ownerEmail));
+  (p.users || []).forEach(u => { const m = lowerMail(u.email); if (m) set.add(m); });
+  if (FB.email) set.add(FB.email);
+  return [...set].filter(Boolean);
+}
+
+function syncStatus(msg) {
+  const bar = $('#syncbar');
+  if (!bar) return;
+  if (!msg) { bar.hidden = true; return; }
+  $('#syncmsg').textContent = msg;
+  bar.hidden = false;
+}
+function refreshStatus() {
+  if (!FB.online) syncStatus('Hors connexion, les modifications partiront au retour du réseau');
+  else if (FB.pending > 0) syncStatus('Synchronisation…');
+  else syncStatus('');
+}
+addEventListener('online', () => { FB.online = true; refreshStatus(); });
+addEventListener('offline', () => { FB.online = false; refreshStatus(); });
+
+/* Écrit les projets modifiés, supprime ceux qui ont disparu. */
+function pushChanges() {
+  if (!FB.user) return;
+  const alive = new Set();
+  for (const p of state.projects) {
+    alive.add(p.id);
+    const fp = canon(p);
+    if (seenFp.get(p.id) === fp) continue;
+    seenFp.set(p.id, fp);
+    FB.pending++; refreshStatus();
+    setDoc(doc(PROJETS, p.id), { ...p, memberEmails: memberEmailsOf(p) })
+      .catch(err => { console.error(err); toast("Enregistrement refusé : " + (err.code || 'erreur')); })
+      .finally(() => { FB.pending--; refreshStatus(); });
+  }
+  for (const id of [...seenFp.keys()]) {
+    if (alive.has(id)) continue;
+    seenFp.delete(id);
+    deleteDoc(doc(PROJETS, id)).catch(err => console.error(err));
+  }
+}
+
+/* Fusionne en place pour ne pas casser les références tenues par une feuille ouverte. */
+function applySnapshot(list) {
+  const byId = new Map(state.projects.map(p => [p.id, p]));
+  state.projects = list.map(inc => {
+    const cur = byId.get(inc.id);
+    if (!cur) return inc;
+    Object.keys(cur).forEach(k => { if (!(k in inc)) delete cur[k]; });
+    return Object.assign(cur, inc);
+  });
+}
+
+function startSync() {
+  if (FB.stop) FB.stop();
+  const q = query(PROJETS, where('memberEmails', 'array-contains', FB.email));
+  FB.stop = onSnapshot(q, snap => {
+    const list = [];
+    snap.forEach(d => {
+      const p = d.data();
+      delete p.memberEmails;
+      if (!p.id) p.id = d.id;
+      list.push(p);
+      seenFp.set(p.id, canon(p));
+    });
+    applySnapshot(normalize({ projects: list, settings: state.settings }).projects);
+    const first = !FB.ready;
+    FB.ready = true;
+    rerender();
+    if (first) offerLegacyImport();
+  }, err => {
+    console.error(err);
+    FB.ready = true;
+    syncStatus('Synchronisation interrompue : ' + (err.code || 'erreur'));
+  });
+}
+
+/* Reprise unique des chantiers créés avant la synchronisation. */
+async function offerLegacyImport() {
+  const old = legacyProjects();
+  if (!old.length || localStorage.getItem('suivi-chantiers:migrated')) return;
+  const known = new Set(state.projects.map(p => p.id));
+  const todo = old.filter(p => !known.has(p.id));
+  if (!todo.length) { localStorage.setItem('suivi-chantiers:migrated', '1'); return; }
+  const ok = await confirmDialog({
+    title: 'Reprendre vos chantiers ?',
+    message: `${plural(todo.length, 'projet')} enregistré${todo.length > 1 ? 's' : ''} sur cet appareil avant la synchronisation. Les envoyer vers votre compte ?`,
+    confirm: 'Reprendre', danger: false
+  });
+  localStorage.setItem('suivi-chantiers:migrated', '1');
+  if (!ok) return;
+  todo.forEach(p => { if (!p.ownerEmail) p.ownerEmail = FB.email; state.projects.push(p); });
+  save(); rerender(); toast(plural(todo.length, 'projet') + ' repris');
+}
+
+/* --- Écran de connexion --- */
+const AUTH_MSG = {
+  'auth/invalid-email': "Cette adresse e-mail n'est pas valide",
+  'auth/invalid-credential': 'Adresse e-mail ou mot de passe incorrect',
+  'auth/wrong-password': 'Adresse e-mail ou mot de passe incorrect',
+  'auth/user-not-found': "Aucun compte avec cette adresse. Créez-le d'abord.",
+  'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse. Connectez-vous.',
+  'auth/weak-password': 'Le mot de passe doit faire au moins 6 caractères',
+  'auth/too-many-requests': 'Trop de tentatives. Réessayez dans quelques minutes.',
+  'auth/network-request-failed': 'Pas de connexion réseau',
+  'auth/operation-not-allowed': "La connexion par e-mail n'est pas activée dans Firebase"
+};
+function authSetup() {
+  const box = $('#auth'), mail = $('#au-mail'), pass = $('#au-pass');
+  const err = $('#au-err'), go = $('#au-go'), mode = $('#au-mode'), sub = $('#au-sub');
+  let creating = false;
+
+  const fail = e => {
+    err.textContent = AUTH_MSG[e && e.code] || "Connexion impossible" + (e && e.code ? ' (' + e.code + ')' : '');
+    err.hidden = false;
+  };
+  const busy = on => { go.disabled = on; go.textContent = on ? 'Patientez…' : (creating ? 'Créer mon compte' : 'Se connecter'); };
+
+  mode.onclick = () => {
+    creating = !creating;
+    err.hidden = true;
+    sub.textContent = creating ? 'Créez votre compte avec votre adresse professionnelle' : 'Connectez-vous pour retrouver vos chantiers';
+    go.textContent = creating ? 'Créer mon compte' : 'Se connecter';
+    mode.textContent = creating ? "J'ai déjà un compte" : 'Premier accès ? Créer mon compte';
+    pass.autocomplete = creating ? 'new-password' : 'current-password';
+  };
+
+  go.onclick = async () => {
+    const m = mail.value.trim(), pw = pass.value;
+    err.hidden = true;
+    if (!isEmail(m)) { mail.classList.add('invalid'); mail.focus(); return fail({ code: 'auth/invalid-email' }); }
+    if (pw.length < 6) { pass.classList.add('invalid'); pass.focus(); return fail({ code: 'auth/weak-password' }); }
+    mail.classList.remove('invalid'); pass.classList.remove('invalid');
+    busy(true);
+    try {
+      if (creating) {
+        const cred = await createUserWithEmailAndPassword(fbAuth, m, pw);
+        if (state.settings.userName) await updateProfile(cred.user, { displayName: state.settings.userName }).catch(() => {});
+      } else {
+        await signInWithEmailAndPassword(fbAuth, m, pw);
+      }
+      pass.value = '';
+    } catch (e) { fail(e); } finally { busy(false); }
+  };
+
+  $('#au-forgot').onclick = async () => {
+    const m = mail.value.trim();
+    if (!isEmail(m)) { mail.classList.add('invalid'); mail.focus(); return fail({ code: 'auth/invalid-email' }); }
+    try {
+      await sendPasswordResetEmail(fbAuth, m);
+      err.hidden = true;
+      toast('Message de réinitialisation envoyé à ' + m);
+    } catch (e) { fail(e); }
+  };
+
+  [mail, pass].forEach(el => el.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); }));
+
+  onAuthStateChanged(fbAuth, user => {
+    if (user) {
+      FB.user = user; FB.email = lowerMail(user.email);
+      box.hidden = true;
+      document.body.classList.remove('noscroll');
+      if (!state.settings.userName && user.displayName) { state.settings.userName = user.displayName; save(); }
+      startSync();
+      route();
+    } else {
+      FB.user = null; FB.email = ''; FB.ready = false;
+      $('#au-form').hidden = false;
+      $('#au-sub').textContent = creating ? 'Créez votre compte avec votre adresse professionnelle' : 'Connectez-vous pour retrouver vos chantiers';
+      if (FB.stop) { FB.stop(); FB.stop = null; }
+      seenFp.clear();
+      state.projects = [];
+      syncStatus('');
+      box.removeAttribute('data-boot');
+      box.hidden = false;
+      mail.focus();
+    }
+  });
+}
+
+async function doSignOut() {
+  if (!await confirmDialog({ title: 'Se déconnecter ?', message: 'Vos chantiers restent enregistrés sur votre compte.', confirm: 'Se déconnecter', danger: false })) return;
+  closeSheet();
+  try { await signOut(fbAuth); toast('Déconnecté'); } catch (e) { toast('Déconnexion impossible'); }
+}
 
 /* =========================================================
    Référentiels
@@ -756,7 +1046,7 @@ function projectForm(p) {
         });
         if (bad) { toast('Corrigez les adresses e-mail en rouge'); return; }
         if (isNew) {
-          const np = { id: uid(), name, address: E.paddress.value.trim(), users: us, steps: [], links: { plans: [], photos: [], planning: [] }, contacts: [], requests: [], reports: [], createdAt: Date.now(), updatedAt: Date.now() };
+          const np = { id: uid(), name, address: E.paddress.value.trim(), users: us, steps: [], links: { plans: [], photos: [], planning: [] }, contacts: [], requests: [], reports: [], ownerEmail: FB.email, createdAt: Date.now(), updatedAt: Date.now() };
           state.projects.push(np); save(); closeSheet(); toast('Projet créé'); go('#/p/' + np.id + '/etapes');
         } else {
           p.name = name; p.address = E.paddress.value.trim(); p.users = us;
@@ -1348,18 +1638,22 @@ function settingsSheet() {
   const th = state.settings.theme || 'auto';
   openSheet({
     title: 'Paramètres',
-    body: `<div class="field"><label for="s-name">Votre nom</label><input id="s-name" value="${esc(state.settings.userName)}" placeholder="Utilisé comme rédacteur par défaut" autocomplete="name"></div>
+    body: `<div class="flabel">Compte</div>
+      <div class="acct">${ic('users')}<span><b>${esc(FB.email)}</b><small>Chantiers synchronisés sur tous vos appareils</small></span></div>
+      <button class="btn btn-ghost btn-block mb" id="s-out">Se déconnecter</button>
+      <div class="field"><label for="s-name">Votre nom</label><input id="s-name" value="${esc(state.settings.userName)}" placeholder="Utilisé comme rédacteur par défaut" autocomplete="name"></div>
       <div class="field"><div class="flabel">Apparence</div><div class="seg" id="s-theme">${[['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button type="button" data-t="${k}" class="${k === th ? 'active' : ''}">${l}</button>`).join('')}</div></div>
       <div class="flabel">Données</div>
       <div class="settings-list">
         <button class="srow" id="s-export">${ic('download')}<span><b>Exporter une sauvegarde</b><small>Fichier JSON contenant tous les projets</small></span></button>
         <label class="srow">${ic('upload')}<span><b>Importer une sauvegarde</b><small>Remplace les données de cet appareil</small></span><input type="file" id="s-import" accept="application/json,.json" hidden></label>
         <button class="srow" id="s-demo">${ic('panel')}<span><b>Ajouter le projet exemple</b><small>Pour découvrir l'application</small></span></button>
-        <button class="srow danger" id="s-reset">${ic('trash')}<span><b>Effacer toutes les données</b><small>Supprime tous les projets de cet appareil</small></span></button>
+        <button class="srow danger" id="s-reset">${ic('trash')}<span><b>Supprimer tous mes projets</b><small>Suppression définitive pour toute l'équipe</small></span></button>
       </div>
-      <p class="hint mt">Les données sont enregistrées dans le navigateur de cet appareil. Exportez régulièrement une sauvegarde.</p>`,
+      <p class="hint mt">Les chantiers sont enregistrés sur votre compte et partagés avec les adresses e-mail de l'équipe. L'application reste utilisable hors connexion : les modifications partent au retour du réseau.</p>`,
     foot: `<button class="btn btn-primary btn-block" data-sheet-close>Fermer</button>`,
     onMount(sh) {
+      $('#s-out', sh).onclick = () => doSignOut();
       $('#s-name', sh).addEventListener('input', e => { state.settings.userName = e.target.value.trim(); save(); });
       $('#s-theme', sh).onclick = e => {
         const b = e.target.closest('[data-t]'); if (!b) return;
@@ -1374,16 +1668,23 @@ function settingsSheet() {
           try {
             const d = JSON.parse(rd.result);
             if (!d || !Array.isArray(d.projects)) throw new Error('format');
-            const ok = await confirmDialog({ title: 'Importer la sauvegarde ?', message: `${plural(d.projects.length, 'projet')} vont remplacer les données actuelles de cet appareil.`, confirm: 'Importer', danger: false });
+            const ok = await confirmDialog({ title: 'Importer la sauvegarde ?', message: `${plural(d.projects.length, 'projet')} vont être ajoutés à votre compte. Les projets déjà présents seront mis à jour.`, confirm: 'Importer', danger: false });
             if (!ok) return;
-            state = normalize(d); save(); applyTheme(); closeSheet(); toast('Sauvegarde importée'); go('#/');
+            const inc = normalize(d).projects;
+            const byId = new Map(state.projects.map(p => [p.id, p]));
+            inc.forEach(p => {
+              if (!p.ownerEmail) p.ownerEmail = FB.email;
+              const cur = byId.get(p.id);
+              if (cur) Object.assign(cur, p); else state.projects.push(p);
+            });
+            save(); applyTheme(); closeSheet(); toast(plural(inc.length, 'projet') + ' importé' + (inc.length > 1 ? 's' : '')); go('#/');
           } catch (err) { toast("Ce fichier n'est pas une sauvegarde valide"); }
         };
         rd.readAsText(file);
       };
-      $('#s-demo', sh).onclick = () => { state.projects.push(demoProject()); save(); closeSheet(); toast('Projet exemple ajouté'); go('#/'); };
+      $('#s-demo', sh).onclick = () => { const d = demoProject(); d.ownerEmail = FB.email; state.projects.push(d); save(); closeSheet(); toast('Projet exemple ajouté'); go('#/'); };
       $('#s-reset', sh).onclick = async () => {
-        if (await confirmDialog({ title: 'Effacer toutes les données ?', message: 'Tous les projets de cet appareil seront supprimés. Pensez à exporter une sauvegarde avant.', confirm: 'Tout effacer' })) {
+        if (await confirmDialog({ title: 'Supprimer tous vos projets ?', message: "Les projets seront supprimés pour toute l'équipe, sur tous les appareils. Exportez une sauvegarde avant.", confirm: 'Tout supprimer' })) {
           state.projects = []; save(); closeSheet(); toast('Données effacées'); go('#/');
         }
       };
@@ -1434,7 +1735,7 @@ const ACTS = {
   global: () => go('#/global'),
   settings: () => settingsSheet(),
   'new-project': () => projectForm(),
-  demo: () => { state.projects.push(demoProject()); save(); toast('Projet exemple ajouté'); rerender(); },
+  demo: () => { const d = demoProject(); d.ownerEmail = FB.email; state.projects.push(d); save(); toast('Projet exemple ajouté'); rerender(); },
   'open-project': el => { if (suppressClick) { suppressClick = false; return; } go('#/p/' + el.dataset.id); },
   'edit-project': el => { const p = findP(el); if (p) projectForm(p); },
   'req-filter': el => { reqFilter = el.dataset.f; rerender(); },
@@ -1483,8 +1784,8 @@ document.addEventListener('keydown', e => {
    Démarrage
    ========================================================= */
 applyTheme();
-route();
-if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+authSetup();
+if (navigator.serviceWorker && /^https?:$/.test(location.protocol)) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
 })();
