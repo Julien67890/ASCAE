@@ -180,10 +180,9 @@ a{color:inherit;text-decoration:none}
 .more-btn:hover{border-color:var(--muted);color:var(--text)}
 
 .quicklinks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
-.ql{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:14px;min-width:0;text-align:center;transition:border-color .15s}
+.ql{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:12px 8px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:13.5px;min-width:0;text-align:center;transition:border-color .15s}
 .ql:hover{border-color:var(--muted)}
-.ql>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:400px){.ql{flex-direction:column;gap:6px;font-size:13px}}
+.ql>span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qi{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;flex:none}
 @media(max-width:480px){.ql{flex-direction:column;align-items:flex-start;gap:6px}}
 
@@ -999,7 +998,7 @@ function renderProjectList() {
   if (!state.projects.length) {
     w.innerHTML = emptyState('panel', 'Aucun projet pour le moment',
       "Créez votre premier chantier pour suivre son avancement, ses demandes d'intervention et ses comptes rendus.",
-      `<button class="btn btn-primary" data-act="new-project">${ic('plus', 18)} Nouveau projet</button><button class="btn btn-ghost" data-act="demo">Charger un projet exemple</button>`);
+      `<button class="btn btn-primary" data-act="new-project">${ic('plus', 18)} Nouveau projet</button>`);
     return;
   }
   let list = state.projects.filter(p => matches(p, homeQuery));
@@ -1146,7 +1145,8 @@ function renderProject(p, tab) {
   $('#app').innerHTML = `<div class="wrap">
     <header class="appbar">
       <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
-      <div class="titlebox"><h1>${esc(p.name)}</h1>${p.address ? `<a href="${mapUrl}" target="_blank" rel="noopener" title="Ouvrir dans Google Maps">${ic('pin', 13)}<span>${esc(p.address)}</span></a>` : '<span class="hint">Adresse non renseignée</span>'}</div>
+      <div class="titlebox"><h1>${esc(p.name)}</h1></div>
+      ${p.address ? `<a class="icon-btn" href="${mapUrl}" target="_blank" rel="noopener" aria-label="Ouvrir l'adresse dans Google Maps" title="${esc(p.address)}">${ic('pin')}</a>` : ''}
       <button class="icon-btn" data-act="edit-project" data-id="${p.id}" aria-label="Modifier le projet">${ic('edit')}</button>
     </header>
     <a class="prog" href="#/p/${p.id}/etapes" aria-label="Avancement ${pct} %, ouvrir les étapes">
@@ -1376,7 +1376,8 @@ function reportForm(p, r, opts) {
       <div class="field"><label for="cr-t">Objet</label><input id="cr-t" name="title" value="${esc(d.title)}" placeholder="Visite de chantier hebdomadaire" autofocus></div>
       ${openReqs.length ? `<div class="field"><label for="cr-rq">Demande d'intervention liée</label>
         <select id="cr-rq" name="requestId"><option value="">Aucune</option>${openReqs.map(q =>
-          `<option value="${q.id}" ${q.id === (d.requestId || '') ? 'selected' : ''}>${esc(q.title)} — ${REQ_STATUS[q.status].l.toLowerCase()}</option>`).join('')}</select></div>` : ''}
+          `<option value="${q.id}" ${q.id === (d.requestId || '') ? 'selected' : ''}>${esc(q.title)} — ${REQ_STATUS[q.status].l.toLowerCase()}</option>`).join('')}</select>
+        <label class="check mt-xs" id="cr-done-wrap" ${d.requestId ? '' : 'hidden'}><input type="checkbox" id="cr-done" checked><span>Clore la demande à la validation</span></label></div>` : ''}
       ${meName() ? `<div class="byline"><span>Rédigé par <b>${esc(d.author || meName())}</b></span><button type="button" class="linklike" id="cr-who">Ce n'est pas moi</button></div>`
         : `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" value="" placeholder="Votre nom, mémorisé pour les prochains comptes rendus"></div>`}
       <div class="field">
@@ -1397,6 +1398,8 @@ function reportForm(p, r, opts) {
     onMount(sh) {
       bindRanges(sh);
       const f = $('#crf', sh);
+      const rq = $('#cr-rq', sh), doneWrap = $('#cr-done-wrap', sh);
+      if (rq && doneWrap) rq.onchange = () => { doneWrap.hidden = !rq.value; };
       const ph = $('#cr-photos', sh);
       if (ph) ph.onclick = () => {
         const l = p.links.photos[0];
@@ -1427,11 +1430,17 @@ function reportForm(p, r, opts) {
         rep.progressAt = progress(p);
         rep.stepsSnapshot = p.steps.map(s => ({ name: s.name, progress: s.progress || 0 }));
         if (send) rep.sentAt = Date.now();
+        /* Un compte rendu validé clôt la demande qu'il traite, si demandé. */
+        const doneBox = $('#cr-done', sh);
+        if (send && data.requestId && (!doneBox || doneBox.checked)) {
+          const q = p.requests.find(x => x.id === data.requestId);
+          if (q && q.status !== 'terminee') { q.status = 'terminee'; q.doneAt = Date.now(); rep.closedRequest = true; }
+        }
         if (state.settings.userName === '' && data.author && data.author !== FB.email) state.settings.userName = data.author;
         touch(p); return rep;
       };
       $('#cr-draft', sh).onclick = () => { const rep = persist(false); if (rep) { closeSheet(); toast(wasSent ? 'Compte rendu enregistré' : 'Brouillon enregistré'); rerender(); } };
-      $('#cr-send', sh).onclick = () => { const rep = persist(true); if (rep) { closeSheet(); toast('Compte rendu validé'); rerender(); mailSheet(reportMail(p, rep)); } };
+      $('#cr-send', sh).onclick = () => { const rep = persist(true); if (rep) { closeSheet(); toast(rep.closedRequest ? 'Compte rendu validé, demande close' : 'Compte rendu validé'); rerender(); mailSheet(reportMail(p, rep)); } };
       f.onsubmit = e => e.preventDefault();
     }
   });
@@ -1766,13 +1775,6 @@ function settingsSheet() {
       <button class="btn btn-ghost btn-block mb" id="s-out">Se déconnecter</button>
       <div class="field"><label for="s-name">Votre nom</label><input id="s-name" value="${esc(state.settings.userName)}" placeholder="Utilisé comme rédacteur par défaut" autocomplete="name"></div>
       <div class="field"><div class="flabel">Apparence</div><div class="seg" id="s-theme">${[['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button type="button" data-t="${k}" class="${k === th ? 'active' : ''}">${l}</button>`).join('')}</div></div>
-      <div class="flabel">Données</div>
-      <div class="settings-list">
-        <button class="srow" id="s-export">${ic('download')}<span><b>Exporter une sauvegarde</b><small>Fichier JSON contenant tous les projets</small></span></button>
-        <label class="srow">${ic('upload')}<span><b>Importer une sauvegarde</b><small>Remplace les données de cet appareil</small></span><input type="file" id="s-import" accept="application/json,.json" hidden></label>
-        <button class="srow" id="s-demo">${ic('panel')}<span><b>Ajouter le projet exemple</b><small>Pour découvrir l'application</small></span></button>
-        <button class="srow danger" id="s-reset">${ic('trash')}<span><b>Supprimer tous mes projets</b><small>Suppression définitive pour toute l'équipe</small></span></button>
-      </div>
       <p class="hint mt">Les chantiers sont enregistrés sur votre compte et partagés avec les adresses e-mail de l'équipe. L'application reste utilisable hors connexion : les modifications partent au retour du réseau.</p>`,
     foot: `<button class="btn btn-primary btn-block" data-sheet-close>Fermer</button>`,
     onMount(sh) {
@@ -1783,70 +1785,8 @@ function settingsSheet() {
         state.settings.theme = b.dataset.t; save(); applyTheme();
         $$('#s-theme button', sh).forEach(x => x.classList.toggle('active', x === b));
       };
-      $('#s-export', sh).onclick = () => downloadFile(JSON.stringify(state, null, 2), `suivi-chantiers-sauvegarde-${today()}.json`, 'application/json');
-      $('#s-import', sh).onchange = e => {
-        const file = e.target.files[0]; if (!file) return;
-        const rd = new FileReader();
-        rd.onload = async () => {
-          try {
-            const d = JSON.parse(rd.result);
-            if (!d || !Array.isArray(d.projects)) throw new Error('format');
-            const ok = await confirmDialog({ title: 'Importer la sauvegarde ?', message: `${plural(d.projects.length, 'projet')} vont être ajoutés à votre compte. Les projets déjà présents seront mis à jour.`, confirm: 'Importer', danger: false });
-            if (!ok) return;
-            const inc = normalize(d).projects;
-            const byId = new Map(state.projects.map(p => [p.id, p]));
-            inc.forEach(p => {
-              if (!p.ownerEmail) p.ownerEmail = FB.email;
-              const cur = byId.get(p.id);
-              if (cur) Object.assign(cur, p); else state.projects.push(p);
-            });
-            save(); applyTheme(); closeSheet(); toast(plural(inc.length, 'projet') + ' importé' + (inc.length > 1 ? 's' : '')); go('#/');
-          } catch (err) { toast("Ce fichier n'est pas une sauvegarde valide"); }
-        };
-        rd.readAsText(file);
-      };
-      $('#s-demo', sh).onclick = () => { const d = demoProject(); d.ownerEmail = FB.email; state.projects.push(d); save(); closeSheet(); toast('Projet exemple ajouté'); go('#/'); };
-      $('#s-reset', sh).onclick = async () => {
-        if (await confirmDialog({ title: 'Supprimer tous vos projets ?', message: "Les projets seront supprimés pour toute l'équipe, sur tous les appareils. Exportez une sauvegarde avant.", confirm: 'Tout supprimer' })) {
-          state.projects = []; save(); closeSheet(); toast('Données effacées'); go('#/');
-        }
-      };
     }
   });
-}
-function demoProject() {
-  const u1 = { id: uid(), name: 'Claire Dubois', email: 'claire.dubois@exemple.fr', role: 'Chef de projet' };
-  const u2 = { id: uid(), name: 'Marc Lefèvre', email: 'marc.lefevre@exemple.fr', role: 'Conducteur de travaux' };
-  const u3 = { id: uid(), name: 'Sophie Garnier', email: 'sophie.garnier@exemple.fr', role: "Chargé d'affaires" };
-  const prog = [100, 100, 100, 80, 45, 10, 0, 0, 0];
-  const steps = PV_TEMPLATE.map((n, i) => ({ id: uid(), name: n, progress: prog[i] }));
-  const p = {
-    id: uid(), name: 'Ombrière PV, parking de la zone d\'activités', address: '12 avenue des Pins, 33700 Mérignac',
-    users: [u1, u2, u3], steps,
-    links: {
-      plans: [{ id: uid(), label: 'Plan de calepinage, indice C (exemple)', url: 'https://drive.google.com/' }],
-      photos: [{ id: uid(), label: 'Photos de chantier (exemple)', url: 'https://photos.google.com/' }],
-      planning: []
-    },
-    contacts: [
-      { id: uid(), name: 'Paul Moreau', company: 'Bureau de contrôle', role: 'Contrôleur technique', phone: '06 12 34 56 78', email: 'p.moreau@exemple.fr', notes: 'Présent le mardi matin' },
-      { id: uid(), name: 'Nadia Benali', company: 'Mairie', role: 'Service urbanisme', phone: '05 56 00 00 00', email: '', notes: '' }
-    ],
-    requests: [
-      { id: uid(), title: 'Reprendre le serrage des pannes, travée 3', description: 'Couple de serrage non conforme relevé lors de la visite. Contrôler et reprendre toute la travée.', assigneeId: u2.id, priority: 'haute', dueDate: dayOffset(-2), status: 'encours', createdAt: Date.now() - 5 * 864e5, createdBy: 'Claire Dubois' },
-      { id: uid(), title: 'Livraison des onduleurs à réceptionner', description: 'Vérifier les références et l\'état des colis à la livraison.', assigneeId: u2.id, priority: 'normale', dueDate: dayOffset(4), status: 'ouverte', createdAt: Date.now() - 864e5, createdBy: 'Claire Dubois' }
-    ],
-    reports: [],
-    createdAt: Date.now(), updatedAt: Date.now()
-  };
-  p.reports.push({
-    id: uid(), createdAt: Date.now() - 3 * 864e5, date: dayOffset(-3), title: 'Visite de chantier hebdomadaire', author: 'Claire Dubois', presents: 'Marc Lefèvre, équipe de pose',
-    works: 'Fin du montage des structures sur les travées 1 à 5. Début de la pose des modules sur la travée 1.',
-    observations: 'Serrage non conforme sur la travée 3. Zone de stockage à dégager avant la livraison des onduleurs.',
-    actions: 'Marc : reprise du serrage travée 3 avant la fin de semaine. Commande du complément de visserie.',
-    status: 'valide', sentAt: Date.now() - 3 * 864e5, progressAt: progress(p), stepsSnapshot: steps.map(s => ({ name: s.name, progress: s.progress }))
-  });
-  return p;
 }
 
 /* =========================================================
@@ -1858,7 +1798,6 @@ const ACTS = {
   global: () => go('#/global'),
   settings: () => settingsSheet(),
   'new-project': () => projectForm(),
-  demo: () => { const d = demoProject(); d.ownerEmail = FB.email; state.projects.push(d); save(); toast('Projet exemple ajouté'); rerender(); },
   'open-project': el => { if (suppressClick) { suppressClick = false; return; } go('#/p/' + el.dataset.id); },
   'edit-project': el => { const p = findP(el); if (p) projectForm(p); },
   'mine-toggle': () => { mineOnly = !mineOnly; rerender(); },
