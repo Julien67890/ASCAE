@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Un projet n'est lisible et modifiable que par les adresses e-mail
+    // listées dans son champ memberEmails (créateur + équipe).
+    match /projets/{projetId} {
+      allow read, update, delete: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in resource.data.memberEmails;
+
+      allow create: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in request.resource.data.memberEmails;
+    }
+  }
+}
