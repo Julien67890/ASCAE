@@ -179,11 +179,12 @@ a{color:inherit;text-decoration:none}
 .more-btn{width:100%;height:40px;border-radius:8px;border:1px dashed var(--border);font-size:13.5px;font-weight:650;color:var(--muted)}
 .more-btn:hover{border-color:var(--muted);color:var(--text)}
 
-.quicklinks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px}
-.ql{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:12px 8px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:13.5px;min-width:0;text-align:center;transition:border-color .15s}
+.quicklinks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 4px;align-items:stretch}
+.ql{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;height:100%;padding:12px 8px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-weight:650;font-size:13.5px;min-width:0;text-align:center;line-height:1.25;text-decoration:none;transition:border-color .15s}
 .ql:hover{border-color:var(--muted)}
 .ql>span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.qi{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;flex:none}
+.qi{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+.qi svg{display:block}
 @media(max-width:480px){.ql{flex-direction:column;align-items:flex-start;gap:6px}}
 
 /* ---------- onglets ---------- */
@@ -424,6 +425,15 @@ td .avatars{margin-left:0}
 .chip.mine{background:var(--info-bg);color:var(--info);border:1px solid currentColor;font-weight:700}
 .chip.mine.late{background:var(--warn-bg);color:var(--warning)}
 .mt-xs{margin-top:6px}
+.step-bar{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden;margin-top:9px}
+.step-bar i{display:block;height:100%;border-radius:4px;background:var(--accent);transition:width .25s}
+.step.done .step-bar i{background:var(--success)}
+.cr-steps.locked{opacity:.62}
+.cr-steps.locked input[type=range]{pointer-events:none}
+.mini.on{background:var(--info-bg);color:var(--info)}
+.member-grid{gap:6px}
+.mail-preview{border:1px solid var(--border);border-radius:9px;overflow:auto;max-height:52vh;background:#F4F6F8;-webkit-overflow-scrolling:touch}
+.mail-preview table{max-width:none}
 </style>
 </head>
 <body>
@@ -529,6 +539,15 @@ function save() {
   pushChanges();
 }
 const getP = id => state.projects.find(p => p.id === id);
+/* « 44.4885 , -1.1234 » ou « 44.4885 -1.1234 » -> « 44.4885,-1.1234 ». Vide si illisible. */
+function normGps(v) {
+  const m = String(v || '').trim().match(/^(-?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:[.,]\d+)?)$/);
+  if (!m) return '';
+  const la = parseFloat(m[1].replace(',', '.')), lo = parseFloat(m[2].replace(',', '.'));
+  if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) return '';
+  return la + ',' + lo;
+}
+const gpsUrl = g => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(g);
 /* Rédacteur courant : nom renseigné, sinon nom du compte, sinon adresse. */
 function meName() {
   return state.settings.userName
@@ -1076,6 +1095,7 @@ function projectForm(p) {
       <div class="member-grid">
         <input class="input" data-f="name" placeholder="Nom et prénom" value="${esc(u.name)}" autocomplete="name">
         <input class="input" data-f="email" type="email" inputmode="email" placeholder="adresse@entreprise.fr" value="${esc(u.email)}" autocomplete="email">
+        <input class="input" data-f="phone" type="tel" inputmode="tel" placeholder="06 12 34 56 78" value="${esc(u.phone || '')}" autocomplete="tel">
         <select class="input" data-f="role">${ROLES.map(r => `<option ${r === u.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
       </div>
       <button type="button" class="mini" data-rm aria-label="Retirer cet utilisateur">${ic('trash', 18)}</button>
@@ -1085,6 +1105,10 @@ function projectForm(p) {
     body: `<form id="pf" novalidate>
       <div class="field"><label for="pf-name">Nom du projet</label><input id="pf-name" name="pname" value="${esc(d.name)}" placeholder="Centrale PV toiture, entrepôt Nord" autofocus></div>
       <div class="field"><label for="pf-addr">Adresse du chantier</label><input id="pf-addr" name="paddress" value="${esc(d.address)}" placeholder="Numéro, rue, code postal, ville" autocomplete="street-address"></div>
+      <div class="field"><label for="pf-gps">Point GPS</label>
+        <input id="pf-gps" name="pgps" value="${esc(d.gps || '')}" placeholder="44.4885, -1.1234" inputmode="decimal">
+        <button type="button" class="btn btn-ghost btn-sm mt-xs" id="pf-here">${ic('pin', 16)} Utiliser ma position actuelle</button>
+        <p class="hint mt-xs">Utile quand le chantier n'a pas d'adresse exploitable. Latitude puis longitude, séparées par une virgule.</p></div>
       <div class="field">
         <div class="flabel-row"><label>Utilisateurs ayant accès</label><span class="hint">Ils reçoivent les comptes rendus</span></div>
         <div id="members">${users.map(memberRow).join('')}</div>
@@ -1094,8 +1118,24 @@ function projectForm(p) {
     foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="pf-save">${isNew ? 'Créer le projet' : 'Enregistrer'}</button>`,
     onMount(sh) {
       const members = $('#members', sh), f = $('#pf', sh);
+      const here = $('#pf-here', sh);
+      if (here) here.onclick = () => {
+        if (!navigator.geolocation) return toast('Géolocalisation indisponible sur cet appareil');
+        here.disabled = true; here.textContent = 'Localisation…';
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            $('#pf-gps', sh).value = pos.coords.latitude.toFixed(6) + ', ' + pos.coords.longitude.toFixed(6);
+            here.disabled = false; here.innerHTML = ic('pin', 16) + ' Utiliser ma position actuelle';
+            toast('Position relevée');
+          },
+          err => {
+            here.disabled = false; here.innerHTML = ic('pin', 16) + ' Utiliser ma position actuelle';
+            toast(err.code === 1 ? 'Autorisez la localisation dans votre navigateur' : 'Position introuvable');
+          },
+          { enableHighAccuracy: true, timeout: 12000 });
+      };
       $('#add-member', sh).onclick = () => {
-        members.insertAdjacentHTML('beforeend', memberRow({ id: uid(), name: '', email: '', role: 'Conducteur de travaux' }));
+        members.insertAdjacentHTML('beforeend', memberRow({ id: uid(), name: '', email: '', phone: '', role: 'Conducteur de travaux' }));
         members.lastElementChild.querySelector('input').focus();
       };
       members.addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) b.closest('.member').remove(); });
@@ -1105,7 +1145,7 @@ function projectForm(p) {
         if (!name) { E.pname.classList.add('invalid'); E.pname.focus(); toast('Indiquez le nom du projet'); return; }
         const us = []; let bad = false;
         $$('.member', members).forEach(m => {
-          const u = { id: m.dataset.uid, name: $('[data-f=name]', m).value.trim(), email: $('[data-f=email]', m).value.trim(), role: $('[data-f=role]', m).value };
+          const u = { id: m.dataset.uid, name: $('[data-f=name]', m).value.trim(), email: $('[data-f=email]', m).value.trim(), phone: $('[data-f=phone]', m).value.trim(), role: $('[data-f=role]', m).value };
           if (!u.name && !u.email) return;
           if (u.email && !isEmail(u.email)) { bad = true; $('[data-f=email]', m).classList.add('invalid'); }
           if (!u.name) u.name = u.email.split('@')[0];
@@ -1113,10 +1153,10 @@ function projectForm(p) {
         });
         if (bad) { toast('Corrigez les adresses e-mail en rouge'); return; }
         if (isNew) {
-          const np = { id: uid(), name, address: E.paddress.value.trim(), users: us, steps: [], links: { plans: [], photos: [], planning: [] }, contacts: [], requests: [], reports: [], ownerEmail: FB.email, createdAt: Date.now(), updatedAt: Date.now() };
+          const np = { id: uid(), name, address: E.paddress.value.trim(), gps: normGps(E.pgps.value), users: us, steps: [], links: { plans: [], photos: [], planning: [] }, contacts: [], requests: [], reports: [], ownerEmail: FB.email, createdAt: Date.now(), updatedAt: Date.now() };
           state.projects.push(np); save(); closeSheet(); toast('Projet créé'); go('#/p/' + np.id + '/etapes');
         } else {
-          p.name = name; p.address = E.paddress.value.trim(); p.users = us;
+          p.name = name; p.address = E.paddress.value.trim(); p.gps = normGps(E.pgps.value); p.users = us;
           touch(p); closeSheet(); toast('Projet enregistré'); rerender();
         }
       };
@@ -1146,7 +1186,7 @@ function renderProject(p, tab) {
     <header class="appbar">
       <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
       <div class="titlebox"><h1>${esc(p.name)}</h1></div>
-      ${p.address ? `<a class="icon-btn" href="${mapUrl}" target="_blank" rel="noopener" aria-label="Ouvrir l'adresse dans Google Maps" title="${esc(p.address)}">${ic('pin')}</a>` : ''}
+      ${(p.gps || p.address) ? `<a class="icon-btn" href="${p.gps ? gpsUrl(p.gps) : mapUrl}" target="_blank" rel="noopener" aria-label="Ouvrir dans Google Maps" title="${esc(p.gps ? 'Point GPS : ' + p.gps : p.address)}">${ic('pin')}</a>` : ''}
       <button class="icon-btn" data-act="edit-project" data-id="${p.id}" aria-label="Modifier le projet">${ic('edit')}</button>
     </header>
     <a class="prog" href="#/p/${p.id}/etapes" aria-label="Avancement ${pct} %, ouvrir les étapes">
@@ -1186,7 +1226,6 @@ function renderTab(p, tab) {
 }
 function bindTab(p, tab) {
   const panel = $('#panel');
-  bindRanges(panel);
   if (tab === 'etapes') {
     $$('input[type=range][data-step]', panel).forEach(i => i.addEventListener('change', () => {
       const s = p.steps.find(x => x.id === i.dataset.step);
@@ -1388,8 +1427,10 @@ function reportForm(p, r, opts) {
       <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
       <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
       <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
-      ${p.steps.length ? `<div class="field"><div class="flabel-row"><label>Avancement des étapes</label><span class="hint">Mis à jour à l'enregistrement</span></div>
-        <div class="cr-steps">${p.steps.map(s => `<div><div class="cr-step-head"><span>${esc(s.name)}</span><b data-out="${s.id}">${s.progress || 0}%</b></div><input type="range" min="0" max="100" step="5" data-step="${s.id}" value="${s.progress || 0}" aria-label="Avancement ${esc(s.name)}"></div>`).join('')}</div></div>` : ''}
+      ${p.steps.length ? `<div class="field"><div class="flabel-row"><label>Avancement des étapes</label>
+          <button type="button" class="mini" id="cr-unlock" aria-label="Modifier l'avancement">${ic('edit', 17)}</button></div>
+        <div class="cr-steps locked" id="cr-steps">${p.steps.map(s => `<div><div class="cr-step-head"><span>${esc(s.name)}</span><b data-out="${s.id}">${s.progress || 0}%</b></div><input type="range" min="0" max="100" step="5" data-step="${s.id}" value="${s.progress || 0}" aria-label="Avancement ${esc(s.name)}" disabled></div>`).join('')}</div>
+        <p class="hint mt-xs" id="cr-lockhint">Touchez le crayon pour ajuster l'avancement.</p></div>` : ''}
       <div class="notice ${recips.length ? '' : 'warn'}">${ic(recips.length ? 'mail' : 'alert', 16)}<span>${recips.length
         ? `À la validation, le compte rendu est adressé à ${recips.map(u => `<b>${esc(u.name)}</b>`).join(', ')}.`
         : `Aucun utilisateur du projet n'a d'adresse e-mail. <button type="button" class="linklike" data-act="edit-project" data-id="${p.id}">Compléter l'équipe</button>`}</span></div>
@@ -1398,6 +1439,13 @@ function reportForm(p, r, opts) {
     onMount(sh) {
       bindRanges(sh);
       const f = $('#crf', sh);
+      const unlock = $('#cr-unlock', sh);
+      if (unlock) unlock.onclick = () => {
+        const box = $('#cr-steps', sh), on = box.classList.toggle('locked');
+        $$('input[type=range]', box).forEach(r => { r.disabled = on; });
+        unlock.classList.toggle('on', !on);
+        $('#cr-lockhint', sh).textContent = on ? 'Touchez le crayon pour ajuster l\'avancement.' : 'Faites glisser les curseurs, puis enregistrez.';
+      };
       const rq = $('#cr-rq', sh), doneWrap = $('#cr-done-wrap', sh);
       if (rq && doneWrap) rq.onchange = () => { doneWrap.hidden = !rq.value; };
       const ph = $('#cr-photos', sh);
@@ -1459,8 +1507,85 @@ function reportMail(p, r) {
   const snap = r.stepsSnapshot || [];
   if (snap.length) { L.push('', 'AVANCEMENT DES ÉTAPES'); snap.forEach(s => L.push(`- ${s.name} : ${s.progress} %`)); }
   L.push('', 'Cordialement,'); if (r.author || state.settings.userName) L.push(r.author || state.settings.userName);
-  return { to, subject: `[${p.name}] Compte rendu d'intervention du ${fmtDate(r.date)}${r.title ? ' : ' + r.title : ''}`, body: L.join('\n'), title: 'Diffuser le compte rendu' };
+  return { to, subject: `[${p.name}] Compte rendu d'intervention du ${fmtDate(r.date)}${r.title ? ' : ' + r.title : ''}`, body: L.join('\n'), html: reportHtml(p, r), title: 'Diffuser le compte rendu' };
 }
+/* Compte rendu mis en forme, destiné au presse-papier puis à la messagerie.
+   Styles en ligne uniquement : les clients de messagerie ignorent les feuilles de style. */
+function reportHtml(p, r) {
+  const BL = '#1E2B3A', JA = '#FFC21A', GR = '#6B7885', BD = '#DDE2E7';
+  const pct = r.progressAt != null ? r.progressAt : progress(p);
+  const q = linkedRequest(p, r);
+  const snap = r.stepsSnapshot || [];
+  const E = esc;
+
+  const bar = (v, h, col) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;background:#EDEFF2;border-radius:${h}px"><tr>
+    <td width="${v}%" style="height:${h}px;background:${col};border-radius:${h}px;font-size:1px;line-height:${h}px">&nbsp;</td>
+    <td style="font-size:1px;line-height:${h}px">&nbsp;</td></tr></table>`;
+
+  const meta = [
+    ['Date', fmtDate(r.date)],
+    r.author ? ['Rédigé par', E(r.author)] : null,
+    r.presents ? ['Présents', E(r.presents)] : null,
+    p.address ? ['Adresse', E(p.address)] : null,
+    q ? ['Suite à la demande', E(q.title)] : null
+  ].filter(Boolean).map(([k, v]) =>
+    `<tr><td style="padding:5px 14px 5px 0;color:${GR};font-size:13px;white-space:nowrap;vertical-align:top">${k}</td>
+         <td style="padding:5px 0;font-size:14px;color:${BL};vertical-align:top">${v}</td></tr>`).join('');
+
+  const sec = (t, c) => c ? `<tr><td style="padding:20px 24px 0">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:${GR};border-bottom:2px solid ${JA};padding-bottom:5px;margin-bottom:9px">${t}</div>
+      <div style="font-size:14px;line-height:1.55;color:#22303F;white-space:pre-wrap">${E(c)}</div></td></tr>` : '';
+
+  const steps = snap.length ? `<tr><td style="padding:20px 24px 0">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:${GR};border-bottom:2px solid ${JA};padding-bottom:5px;margin-bottom:11px">Avancement des étapes</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${snap.map(st => {
+        const v = st.progress || 0, col = v >= 100 ? '#2E9E6A' : (v > 0 ? JA : '#C8CED6');
+        return `<tr><td style="padding:0 0 9px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+            <td style="font-size:13.5px;color:${BL};padding-bottom:4px">${v >= 100 ? '&#10003; ' : ''}${E(st.name)}</td>
+            <td align="right" style="font-size:13px;font-weight:700;color:${v >= 100 ? '#2E9E6A' : BL};padding-bottom:4px">${v}&nbsp;%</td>
+          </tr></table>${bar(v, 6, col)}</td></tr>`;
+      }).join('')}</table></td></tr>` : '';
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F4F6F8;padding:0;margin:0">
+  <tr><td align="center" style="padding:0">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="620" style="max-width:620px;background:#FFFFFF;border:1px solid ${BD};border-radius:10px;overflow:hidden;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+
+      <tr><td style="background:${BL};padding:20px 24px">
+        <div style="color:${JA};font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase">Compte rendu d'intervention</div>
+        <div style="color:#FFFFFF;font-size:21px;font-weight:700;padding-top:5px">${E(p.name)}</div>
+        ${r.title ? `<div style="color:#AFBAC6;font-size:14px;padding-top:3px">${E(r.title)}</div>` : ''}
+      </td></tr>
+
+      <tr><td style="padding:18px 24px 0">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+          <td style="font-size:13px;color:${GR};font-weight:600">Avancement global du chantier</td>
+          <td align="right" style="font-size:22px;font-weight:700;color:${BL}">${pct}&nbsp;%</td>
+        </tr></table>
+        <div style="padding-top:7px">${bar(pct, 12, pct >= 100 ? '#2E9E6A' : JA)}</div>
+      </td></tr>
+
+      <tr><td style="padding:16px 24px 0">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F7F9FB;border:1px solid ${BD};border-radius:8px">
+          <tr><td style="padding:10px 14px"><table role="presentation" cellpadding="0" cellspacing="0" border="0">${meta}</table></td></tr>
+        </table>
+      </td></tr>
+
+      ${sec('Travaux réalisés', r.works)}
+      ${sec('Observations et réserves', r.observations)}
+      ${sec('Actions à prévoir', r.actions)}
+      ${steps}
+
+      <tr><td style="padding:22px 24px 24px">
+        <div style="font-size:14px;color:#22303F">Cordialement,<br><b>${E(r.author || state.settings.userName || '')}</b></div>
+      </td></tr>
+      <tr><td style="background:#F7F9FB;border-top:1px solid ${BD};padding:11px 24px;font-size:11.5px;color:${GR}">
+        ASCAE C&amp;I — compte rendu diffusé le ${fmtDate(Date.now())}
+      </td></tr>
+    </table>
+  </td></tr></table>`;
+}
+
 function viewReport(p, r) {
   const d = toDate(r.date), sent = r.status === 'valide';
   const sec = (t, c) => c ? `<div class="rv-sec"><h4>${t}</h4><p class="prewrap">${esc(c)}</p></div>` : '';
@@ -1501,14 +1626,28 @@ function mailSheet(m) {
     body: `<div class="flabel">Destinataires</div>
       <div class="recips">${m.to.length ? m.to.map(e => `<span class="chip">${ic('mail', 13)}<span>${esc(e)}</span></span>`).join('') : '<span class="hint">Aucune adresse e-mail renseignée : vous pourrez choisir les destinataires dans votre messagerie.</span>'}</div>
       <div class="flabel">Objet</div><div class="mail-subj">${esc(m.subject)}</div>
-      <div class="flabel">Message</div><pre class="mail-body">${esc(m.body)}</pre>
+      <div class="flabel">Message</div>
+      ${m.html ? `<div class="mail-preview">${m.html}</div>` : `<pre class="mail-body">${esc(m.body)}</pre>`}
       ${long ? `<div class="notice warn">${ic('alert', 16)}<span>Ce message est long : certaines messageries coupent le texte pré-rempli. Si c'est le cas, utilisez « Copier » puis collez-le dans votre e-mail.</span></div>` : ''}`,
-    foot: `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Ouvrir la messagerie</a>`,
+    foot: `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} ${m.html ? 'Copier mis en forme' : 'Copier'}</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Ouvrir la messagerie</a>`,
     onMount(sh) {
       const a = $('#m-open', sh);
       if (window.self !== window.top) a.target = '_blank';
       a.addEventListener('click', () => setTimeout(closeSheet, 400));
-      $('#m-copy', sh).onclick = () => copyText(`À : ${m.to.join(', ')}\nObjet : ${m.subject}\n\n${m.body}`, 'Message copié');
+      $('#m-copy', sh).onclick = async () => {
+        const plain = `À : ${m.to.join(', ')}\nObjet : ${m.subject}\n\n${m.body}`;
+        if (m.html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({
+              'text/html': new Blob([m.html], { type: 'text/html' }),
+              'text/plain': new Blob([plain], { type: 'text/plain' })
+            })]);
+            toast('Compte rendu copié, collez-le dans votre e-mail');
+            return;
+          } catch (e) { /* on retombe sur le texte simple */ }
+        }
+        copyText(plain, 'Message copié');
+      };
     }
   });
 }
@@ -1518,7 +1657,7 @@ function tabEtapes(p) {
   if (!p.steps.length) return emptyState('layers', 'Aucune étape définie',
     "Listez les étapes de construction du chantier. L'avancement global est la moyenne de leur progression.",
     `<button class="btn btn-primary" data-act="new-step" data-id="${p.id}">${ic('plus', 18)} Ajouter une étape</button><button class="btn btn-ghost" data-act="pv-template" data-id="${p.id}">${ic('panel', 18)} Étapes type photovoltaïque</button>`);
-  return `<div class="steps-head"><span class="hint">Faites glisser le curseur ou touchez un pourcentage.</span><button class="btn btn-ghost btn-sm" data-act="new-step" data-id="${p.id}">${ic('plus', 15)} Étape</button></div>
+  return `<div class="steps-head"><span class="hint">Touchez le crayon pour modifier une étape.</span><button class="btn btn-ghost btn-sm" data-act="new-step" data-id="${p.id}">${ic('plus', 15)} Étape</button></div>
   <div class="list">${p.steps.map((s, i) => {
     const v = s.progress || 0;
     return `<div class="step ${v >= 100 ? 'done' : ''}">
@@ -1532,29 +1671,46 @@ function tabEtapes(p) {
           <button class="mini" data-act="edit-step" data-id="${p.id}" data-sid="${s.id}" aria-label="Modifier l'étape">${ic('edit', 17)}</button>
         </div>
       </div>
-      <input type="range" min="0" max="100" step="5" value="${v}" data-step="${s.id}" aria-label="Avancement ${esc(s.name)}">
-      <div class="quick-pct">${[0, 25, 50, 75, 100].map(x => `<button class="${x === v ? 'active' : ''}" data-act="step-set" data-id="${p.id}" data-sid="${s.id}" data-v="${x}">${x}%</button>`).join('')}</div>
+      <div class="step-bar" role="img" aria-label="Avancement ${v}%"><i style="width:${v}%"></i></div>
     </div>`;
   }).join('')}</div>`;
 }
 function stepForm(p, s) {
   const isNew = !s, d = s || { name: '', progress: 0 };
+  const curIdx = isNew ? p.steps.length : p.steps.indexOf(s);
+  const slots = p.steps.length + (isNew ? 1 : 0);
   openSheet({
     title: isNew ? 'Nouvelle étape' : "Modifier l'étape",
     body: `<form id="sf" novalidate>
       <div class="field"><label for="sf-n">Nom de l'étape</label><input id="sf-n" name="sname" value="${esc(d.name)}" placeholder="Pose des modules" autofocus></div>
-      <div class="field"><div class="flabel-row"><label for="sf-p">Avancement</label><b data-out="sf">${d.progress || 0}%</b></div><input id="sf-p" type="range" min="0" max="100" step="5" name="sprog" data-step="sf" value="${d.progress || 0}"></div>
+      <div class="field"><div class="flabel-row"><label for="sf-p">Avancement</label><b data-out="sf">${d.progress || 0}%</b></div><input id="sf-p" type="range" min="0" max="100" step="5" name="sprog" data-step="sf" value="${d.progress || 0}">
+        <div class="quick-pct mt-xs">${[0, 25, 50, 75, 100].map(x => `<button type="button" data-pct="${x}">${x}%</button>`).join('')}</div></div>
+      ${slots > 1 ? `<div class="field"><label for="sf-pos">Position dans le chantier</label>
+        <select id="sf-pos" name="spos">${Array.from({ length: slots }, (_, i) =>
+          `<option value="${i}" ${i === curIdx ? 'selected' : ''}>${i + 1}${(() => {
+            const ref = isNew ? p.steps[i] : p.steps.filter((_, k) => k !== curIdx)[i > curIdx ? i - 1 : i];
+            return i === curIdx && !isNew ? ' — position actuelle' : (ref ? ' — avant « ' + esc(ref.name) + ' »' : ' — en dernier');
+          })()}</option>`).join('')}</select></div>` : ''}
       ${isNew && !p.steps.length ? `<p class="hint">Pour gagner du temps, les étapes type photovoltaïque peuvent être ajoutées en une fois depuis l'onglet Étapes.</p>` : ''}
     </form>`,
     foot: `${isNew ? '' : `<button class="btn btn-ghost btn-icon danger" id="sf-del" aria-label="Supprimer l'étape">${ic('trash', 18)}</button>`}<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="sf-save">${isNew ? "Ajouter l'étape" : 'Enregistrer'}</button>`,
     onMount(sh) {
       bindRanges(sh);
       const f = $('#sf', sh);
+      $$('[data-pct]', sh).forEach(b => b.onclick = () => {
+        const r = $('#sf-p', sh);
+        r.value = b.dataset.pct;
+        r.dispatchEvent(new Event('input', { bubbles: true }));
+      });
       const submit = () => {
         const E = f.elements, name = E.sname.value.trim();
         if (!name) { E.sname.classList.add('invalid'); E.sname.focus(); toast("Indiquez le nom de l'étape"); return; }
-        if (isNew) p.steps.push({ id: uid(), name, progress: +E.sprog.value });
-        else { s.name = name; s.progress = +E.sprog.value; }
+        const pos = E.spos ? Math.max(0, Math.min(slots - 1, +E.spos.value)) : curIdx;
+        if (isNew) p.steps.splice(pos, 0, { id: uid(), name, progress: +E.sprog.value });
+        else {
+          s.name = name; s.progress = +E.sprog.value;
+          if (pos !== curIdx) { p.steps.splice(curIdx, 1); p.steps.splice(pos, 0, s); }
+        }
         touch(p); closeSheet(); toast(isNew ? 'Étape ajoutée' : 'Étape enregistrée'); rerender();
       };
       $('#sf-save', sh).onclick = submit;
@@ -1684,8 +1840,8 @@ function contactForm(p, c) {
 function tabEquipe(p) {
   const body = p.users.length ? `<div class="list">${p.users.map(u => `<div class="contact">
       ${avatar(u.name, 'lg')}
-      <div class="item-main"><div class="item-title">${esc(u.name)}</div><div class="item-sub">${esc(u.role)}</div><div class="item-sub">${u.email ? esc(u.email) : '<span style="color:var(--danger)">Adresse e-mail manquante</span>'}</div></div>
-      ${u.email ? `<div class="contact-actions"><a class="round" href="mailto:${esc(u.email)}" aria-label="Écrire à ${esc(u.name)}">${ic('mail', 18)}</a></div>` : ''}
+      <div class="item-main"><div class="item-title">${esc(u.name)}</div><div class="item-sub">${esc(u.role)}</div><div class="item-sub">${u.email ? esc(u.email) : '<span style="color:var(--danger)">Adresse e-mail manquante</span>'}</div>${u.phone ? `<div class="item-sub">${esc(u.phone)}</div>` : ''}</div>
+      <div class="contact-actions">${u.phone ? `<a class="round" href="tel:${esc(u.phone.replace(/[^+\d]/g, ''))}" aria-label="Appeler ${esc(u.name)}">${ic('phone', 18)}</a>` : ''}${u.email ? `<a class="round" href="mailto:${esc(u.email)}" aria-label="Écrire à ${esc(u.name)}">${ic('mail', 18)}</a>` : ''}</div>
     </div>`).join('')}</div>` : emptyState('users', 'Aucun utilisateur', 'Ajoutez les chefs de projet et conducteurs de travaux qui suivent ce chantier.', '');
   return `<div class="notice">${ic('users', 16)}<span>Ces personnes peuvent recevoir les demandes d'intervention et reçoivent chaque compte rendu validé par e-mail.</span></div>
     ${body}
