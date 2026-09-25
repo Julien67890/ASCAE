@@ -431,7 +431,6 @@ td .avatars{margin-left:0}
 .step-bar{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden;margin-top:9px}
 .step-bar i{display:block;height:100%;border-radius:4px;background:var(--accent);transition:width .25s}
 .step.done .step-bar i{background:var(--success)}
-.cr-steps.locked{opacity:.62}
 .cr-steps.locked input[type=range]{pointer-events:none}
 .mini.on{background:var(--info-bg);color:var(--info)}
 .member-grid{gap:6px}
@@ -444,6 +443,7 @@ td .avatars{margin-left:0}
 .segbar button{flex:1;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:650;color:var(--muted);background:none;border:0}
 .segbar button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .mail-body{font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;max-height:46vh;overflow:auto}
+.field textarea.grow{min-height:48px;resize:none;overflow:hidden;line-height:1.5}
 </style>
 </head>
 <body>
@@ -1455,7 +1455,7 @@ function reportForm(p, r, opts) {
   const o = opts || {};
   const d = r || {
     date: today(), title: o.title || '', author: meName(),
-    requestId: o.requestId || '', presents: '', works: '', observations: '', actions: ''
+    requestId: o.requestId || '', presents: '', works: '', observations: '', actions: '', comment: ''
   };
   const recips = p.users.filter(u => u.email);
   const openReqs = [...p.requests].sort((a, b) =>
@@ -1463,10 +1463,9 @@ function reportForm(p, r, opts) {
   openSheet({
     title: isNew ? 'Nouveau compte rendu' : 'Modifier le compte rendu', size: 'lg',
     body: `<form id="crf" novalidate>
-      <div class="grid2">
-        <div class="field"><label for="cr-date">Date d'intervention</label><input id="cr-date" type="date" name="date" value="${esc(d.date)}"></div>
-        <div class="field"><label for="cr-pr">Présents</label><input id="cr-pr" name="presents" value="${esc(d.presents || '')}" placeholder="Client, équipe de pose"></div>
-      </div>
+      <div class="field"><label for="cr-date">Date d'intervention</label><input id="cr-date" type="date" name="date" value="${esc(d.date)}"></div>
+      <div class="field"><label for="cr-pr">Présents</label>
+        <textarea id="cr-pr" name="presents" rows="1" class="grow" placeholder="Une personne par ligne">${esc(d.presents || '')}</textarea></div>
       <div class="field"><label for="cr-t">Objet</label><input id="cr-t" name="title" value="${esc(d.title)}" placeholder="Visite de chantier hebdomadaire" autofocus></div>
       ${openReqs.length ? `<div class="field"><label for="cr-rq">Demande d'intervention liée</label>
         <select id="cr-rq" name="requestId"><option value="">Aucune</option>${openReqs.map(q =>
@@ -1476,12 +1475,13 @@ function reportForm(p, r, opts) {
         : `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" value="" placeholder="Votre nom, mémorisé pour les prochains comptes rendus"></div>`}
       <div class="field">
         <div class="flabel">Photos du chantier</div>
-        <button type="button" class="btn btn-ghost btn-block" id="cr-photos">${ic('image', 17)} ${p.links.photos.length ? 'Ouvrir le dossier photos' : 'Indiquer le dossier photos'}</button>
-        <p class="hint mt-xs">${p.links.photos.length ? "Le dossier s'ouvre dans un nouvel onglet pour y déposer vos prises de vue." : "Aucun dossier n'est encore associé à ce chantier."}</p>
+        <button type="button" class="btn btn-ghost btn-block" id="cr-photos">${ic('image', 17)} ${p.links.photos.length ? 'Ajouter des photos' : 'Indiquer le dossier photos'}</button>
+        <p class="hint mt-xs">${p.links.photos.length ? "Le dossier du chantier s'ouvre dans un nouvel onglet, déposez-y vos prises de vue." : "Aucun dossier n'est encore associé à ce chantier."}</p>
       </div>
       <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
       <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
       <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
+      <div class="field"><label for="cr-cm">Commentaire</label><textarea id="cr-cm" name="comment" rows="3" placeholder="Tout ce qui mérite d'être signalé sans entrer dans les catégories ci-dessus">${esc(d.comment || '')}</textarea></div>
       ${p.steps.length ? `<div class="field"><div class="flabel-row"><label>Avancement des étapes</label>
           <button type="button" class="mini" id="cr-unlock" aria-label="Modifier l'avancement">${ic('edit', 17)}</button></div>
         <div class="cr-steps locked" id="cr-steps">${p.steps.map(s => `<div><div class="cr-step-head"><span>${esc(s.name)}</span><b data-out="${s.id}">${s.progress || 0}%</b></div><input type="range" min="0" max="100" step="5" data-step="${s.id}" value="${s.progress || 0}" aria-label="Avancement ${esc(s.name)}" disabled></div>`).join('')}</div>
@@ -1494,6 +1494,12 @@ function reportForm(p, r, opts) {
     onMount(sh) {
       bindRanges(sh);
       const f = $('#crf', sh);
+      /* Les champs marqués « grow » s'agrandissent à chaque retour à la ligne. */
+      $$('textarea.grow', sh).forEach(t => {
+        const fit = () => { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 240) + 'px'; };
+        t.addEventListener('input', fit);
+        setTimeout(fit, 0);
+      });
       const unlock = $('#cr-unlock', sh);
       if (unlock) unlock.onclick = () => {
         const box = $('#cr-steps', sh), on = box.classList.toggle('locked');
@@ -1525,7 +1531,8 @@ function reportForm(p, r, opts) {
         const data = { date: E.date.value, title: E.title.value.trim(), author,
           requestId: E.requestId ? E.requestId.value : (d.requestId || ''),
           presents: E.presents.value.trim(), works: E.works.value.trim(),
-          observations: E.observations.value.trim(), actions: E.actions.value.trim() };
+          observations: E.observations.value.trim(), actions: E.actions.value.trim(),
+          comment: E.comment.value.trim() };
         $$('[data-step]', sh).forEach(i => { const s = p.steps.find(x => x.id === i.dataset.step); if (s) s.progress = +i.value; });
         let rep = r;
         if (isNew) { rep = { id: uid(), createdAt: Date.now(), ...data }; p.reports.push(rep); } else Object.assign(rep, data);
@@ -1572,7 +1579,11 @@ function reportMail(p, r) {
 
   L.push('Date : ' + fmtDate(r.date));
   if (r.author) L.push('Rédigé par : ' + r.author);
-  if (r.presents) L.push('Présents : ' + r.presents);
+  if (r.presents) {
+    const lignes = r.presents.split('\n').map(x => x.trim()).filter(Boolean);
+    if (lignes.length > 1) { L.push('Présents :'); lignes.forEach(x => L.push('  . ' + x)); }
+    else L.push('Présents : ' + lignes[0]);
+  }
   if (p.address) L.push('Adresse : ' + p.address);
   if (q) L.push('Suite à la demande : ' + q.title);
 
@@ -1580,6 +1591,7 @@ function reportMail(p, r) {
   sec('Travaux réalisés', r.works);
   sec('Observations et réserves', r.observations);
   sec('Actions à prévoir', r.actions);
+  sec('Commentaire', r.comment);
 
   if (snap.length) {
     L.push('', RULE, 'AVANCEMENT DES ÉTAPES', '');
@@ -1592,6 +1604,11 @@ function reportMail(p, r) {
   }
 
   L.push('', RULE, '');
+  const ph = (p.links.photos || [])[0];
+  if (ph && safeUrl(ph.url)) {
+    L.push('Photos du chantier :');
+    L.push(safeUrl(ph.url), '');
+  }
   L.push('Consulter ce compte rendu dans ASCAE C&I :');
   L.push(reportUrl(p, r));
   L.push('', 'Cordialement,');
@@ -1638,7 +1655,7 @@ function reportHtml(p, r) {
     ['Avancement à cette date', pct + '&nbsp;%'],
     ['Dernière diffusion', r.sentAt ? fmtDate(r.sentAt) : fmtDate(Date.now())]
   ];
-  if (r.presents) infos.push(['Présents', E(r.presents)]);
+  if (r.presents) infos.push(['Présents', E(r.presents).replace(/\n/g, '<br>')]);
   if (q) infos.push(['Demande liée', E(q.title)]);
   if (p.address) infos.push(['Adresse', E(p.address)]);
   if (infos.length % 2) infos.push(['', '']);
@@ -1696,6 +1713,7 @@ function reportHtml(p, r) {
       ${sec('Travaux réalisés', r.works)}
       ${sec('Observations et réserves', r.observations)}
       ${sec('Actions à prévoir', r.actions)}
+      ${sec('Commentaire', r.comment)}
       ${steps}
 
       <tr><td style="padding:24px 24px 0">
@@ -1703,6 +1721,13 @@ function reportHtml(p, r) {
           <td style="background:${BL};border-radius:8px">
             <a href="${reportUrl(p, r)}" style="display:inline-block;padding:12px 20px;font-size:14px;font-weight:700;color:#FFFFFF;text-decoration:none">Ouvrir dans ASCAE C&amp;I &rarr;</a>
           </td>
+          ${(() => {
+            const ph = (p.links.photos || [])[0], u = ph && safeUrl(ph.url);
+            return u ? `<td width="10" style="font-size:1px">&nbsp;</td>
+              <td style="border:1px solid ${BD};border-radius:8px">
+                <a href="${u}" style="display:inline-block;padding:11px 18px;font-size:14px;font-weight:700;color:${BL};text-decoration:none">Photos du chantier</a>
+              </td>` : '';
+          })()}
         </tr></table>
         <div style="font-size:12px;color:${GR};padding-top:8px">Accessible aux membres de l'équipe du chantier.</div>
       </td></tr>
@@ -1728,11 +1753,11 @@ function viewReport(p, r) {
         <div><dt>Date</dt><dd>${d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</dd></div>
         <div><dt>Rédigé par</dt><dd>${r.author ? avatar(r.author, 'xs') + esc(r.author) : '—'}</dd></div>
         ${(() => { const q = linkedRequest(p, r); return q ? `<div class="full"><dt>Demande liée</dt><dd><button type="button" class="linklike" data-act="view-request" data-id="${p.id}" data-rid="${q.id}">${esc(q.title)}</button></dd></div>` : ''; })()}
-        ${r.presents ? `<div class="full"><dt>Présents</dt><dd>${esc(r.presents)}</dd></div>` : ''}
+        ${r.presents ? `<div class="full"><dt>Présents</dt><dd class="prewrap">${esc(r.presents)}</dd></div>` : ''}
         <div><dt>Avancement à cette date</dt><dd>${r.progressAt != null ? r.progressAt + ' %' : '—'}</dd></div>
         <div><dt>Dernière diffusion</dt><dd>${r.sentAt ? fmtDate(r.sentAt) : 'Pas encore envoyé'}</dd></div>
       </dl>
-      ${sec('Travaux réalisés', r.works)}${sec('Observations et réserves', r.observations)}${sec('Actions à prévoir', r.actions)}
+      ${sec('Travaux réalisés', r.works)}${sec('Observations et réserves', r.observations)}${sec('Actions à prévoir', r.actions)}${sec('Commentaire', r.comment)}
       ${snap.length ? `<div class="rv-sec"><h4>Avancement des étapes</h4><div class="rv-steps">${snap.map(s => `<div class="rv-step"><span>${esc(s.name)}</span>${cellsHTML(s.progress)}<b>${s.progress}%</b></div>`).join('')}</div></div>` : ''}`,
     foot: `<button class="btn btn-ghost btn-icon danger" id="cv-del" aria-label="Supprimer le compte rendu">${ic('trash', 18)}</button><button class="btn btn-ghost" id="cv-edit">${ic('edit', 17)} Modifier</button><button class="btn btn-primary" id="cv-mail">${ic('send', 17)} ${sent ? 'Renvoyer' : 'Valider et envoyer'}</button>`,
     onMount(sh) {
