@@ -444,8 +444,11 @@ td .avatars{margin-left:0}
 .segbar button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .mail-body{font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;max-height:46vh;overflow:auto}
 .field textarea.grow{min-height:48px;resize:none;overflow:hidden;line-height:1.5}
-.tlink{color:var(--info);text-decoration:underline;text-underline-offset:2px;font-weight:650}
-.tlink:hover{color:var(--text)}
+.tphoto{width:32px;height:32px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);margin:0 auto}
+.tphoto:hover{background:var(--info-bg);color:var(--info);border-color:currentColor}
+.tmine{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--info-bg);color:var(--info);font-size:11.5px;font-weight:700;vertical-align:middle;white-space:nowrap}
+.tmine.late{background:var(--warn-bg);color:var(--warning)}
+.mine-bar{margin-top:2px}
 </style>
 </head>
 <body>
@@ -2059,7 +2062,9 @@ function rowData(p) {
   return { p, name: p.name, address: p.address || '', progress: progress(p), step: currentStep(p), open: openReq(p), late: lateReq(p), reports: p.reports.length, lastReport: lr ? lr.date : '', photos: (p.links.photos[0] && safeUrl(p.links.photos[0].url)) || '', team: p.users.map(u => u.name).join(', '), updated: p.updatedAt || 0 };
 }
 function sortedRows() {
-  const rows = state.projects.map(rowData).filter(r => matches(r.p, gQuery));
+  const rows = state.projects.map(rowData)
+    .filter(r => matches(r.p, gQuery))
+    .filter(r => !mineOnly || myReqs(r.p).length);
   rows.sort((a, b) => {
     const x = a[gSort.k], y = b[gSort.k];
     return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'fr')) * gSort.dir;
@@ -2083,6 +2088,15 @@ function renderGlobal() {
       <div class="kpi ${late ? 'alert' : ''}"><b>${late}</b><span>Demandes en retard</span></div>
       <div class="kpi"><b>${cr30}</b><span>Comptes rendus sur 30 jours</span></div>
     </div>
+    ${(() => {
+      const mine = ps.reduce((a, p) => a + myReqs(p).length, 0);
+      if (!mine) return '';
+      const ml = ps.reduce((a, p) => a + myLate(p), 0);
+      return `<button class="mine-bar ${mineOnly ? 'on' : ''} ${ml ? 'late' : ''}" data-act="mine-toggle" aria-pressed="${mineOnly}">
+        ${ic(ml ? 'alert' : 'wrench', 18)}
+        <span><b>${plural(mine, 'demande')} pour vous</b>${ml ? `<small>${ml} en retard</small>` : ''}</span>
+        <span class="mine-cta">${mineOnly ? 'Tout afficher' : 'Voir'}</span></button>`;
+    })()}
     <div class="gtoolbar"><div class="search">${ic('search', 19)}<input id="gq" type="search" placeholder="Filtrer les projets" value="${esc(gQuery)}" autocomplete="off"></div></div>
     <div class="table-wrap" id="gtable"></div>
   </div>`;
@@ -2095,14 +2109,17 @@ function renderGTable() {
   const rows = sortedRows();
   w.innerHTML = `<table><thead><tr>${GCOLS.map(c => `<th data-act="gsort" data-k="${c.k}" class="${gSort.k === c.k ? 'sorted' : ''}" aria-sort="${gSort.k === c.k ? (gSort.dir > 0 ? 'ascending' : 'descending') : 'none'}">${c.l}<span class="sort">${gSort.k === c.k ? (gSort.dir > 0 ? '▲' : '▼') : '▲▼'}</span></th>`).join('')}</tr></thead>
   <tbody>${rows.map(r => `<tr data-act="open-project" data-id="${r.p.id}" tabindex="0">
-    <td><b>${esc(r.name)}</b></td>
+    <td><b>${esc(r.name)}</b>${(() => {
+      const m = myReqs(r.p).length;
+      return m ? `<span class="tmine ${myLate(r.p) ? 'late' : ''}" title="${m} demande${m > 1 ? 's' : ''} vous ${m > 1 ? 'sont' : 'est'} assignée${m > 1 ? 's' : ''}">${m} pour vous</span>` : '';
+    })()}</td>
     <td class="muted">${esc(r.address || '—')}</td>
     <td><div class="tprog">${cellsHTML(r.progress)}<b>${r.progress}%</b></div></td>
     <td>${esc(r.step)}</td>
     <td class="num">${r.open ? `<span class="pill st-ouverte">${r.open}</span>` : '<span class="muted">0</span>'}</td>
     <td class="num">${r.late ? `<span class="pill pr-haute">${r.late}</span>` : '<span class="muted">0</span>'}</td>
     <td class="num">${r.reports}</td>
-    <td>${r.photos ? `<a class="tlink" href="${esc(r.photos)}" target="_blank" rel="noopener" data-stop>Photos</a>` : '<span class="muted">—</span>'}</td>
+    <td class="num">${r.photos ? `<a class="round tphoto" href="${esc(r.photos)}" target="_blank" rel="noopener" data-stop aria-label="Photos de ${esc(r.name)}" title="Ouvrir le dossier photos">${ic('image', 17)}</a>` : '<span class="muted">—</span>'}</td>
     <td><span class="avatars">${r.p.users.slice(0, 5).map(u => avatar(u.name)).join('')}</span></td>
   </tr>`).join('')}</tbody></table>${rows.length ? '' : '<div class="empty-line" style="margin:12px">Aucun projet ne correspond au filtre.</div>'}`;
 }
