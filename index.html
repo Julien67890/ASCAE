@@ -50,6 +50,7 @@ body.noscroll{overflow:hidden}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 button:disabled{opacity:.35;cursor:default}
 input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
 a{color:inherit;text-decoration:none}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
@@ -1417,7 +1418,7 @@ function requestMail(p, r) {
   if (r.dueDate) L.push(`Échéance : ${fmtDate(r.dueDate)}`);
   if (p.address) L.push(`Adresse du chantier : ${p.address}`);
   if (r.description) L.push('', 'Description :', r.description);
-  L.push('', '\u25B8 Ouvrir cette demande dans ASCAE C&I :', appBase() + '#/p/' + p.id + '/suivi/cr/' + r.id);
+  L.push('', 'Ouvrir cette demande dans ASCAE C&I :', appBase() + '#/p/' + p.id + '/suivi/cr/' + r.id);
   L.push('', 'Cordialement,'); if (state.settings.userName) L.push(state.settings.userName);
   return { to: u && u.email ? [u.email] : [], subject: `[${p.name}] Demande d'intervention : ${r.title}`, body: L.join('\n'), title: 'Envoyer la demande' };
 }
@@ -1560,7 +1561,7 @@ function reportMail(p, r) {
     const plein = v >= 100 ? '\u{1F7E9}' : '\u{1F7E8}';
     return plein.repeat(lit) + '\u2B1C'.repeat(10 - lit);
   };
-  const RULE = '\u2500'.repeat(34);
+  const RULE = '-'.repeat(30);
 
   const L = [];
   L.push("COMPTE RENDU D'INTERVENTION");
@@ -1575,13 +1576,13 @@ function reportMail(p, r) {
   if (p.address) L.push('Adresse : ' + p.address);
   if (q) L.push('Suite à la demande : ' + q.title);
 
-  const sec = (t, c) => { if (c) L.push('', RULE, '\u25AE ' + t.toUpperCase(), '', c); };
+  const sec = (t, c) => { if (c) L.push('', RULE, t.toUpperCase(), '', c); };
   sec('Travaux réalisés', r.works);
   sec('Observations et réserves', r.observations);
   sec('Actions à prévoir', r.actions);
 
   if (snap.length) {
-    L.push('', RULE, '\u25AE AVANCEMENT DES ÉTAPES', '');
+    L.push('', RULE, 'AVANCEMENT DES ÉTAPES', '');
     snap.forEach(st => {
       const v = st.progress || 0;
       L.push(st.name);
@@ -1591,7 +1592,7 @@ function reportMail(p, r) {
   }
 
   L.push('', RULE, '');
-  L.push('\u25B8 Consulter ce compte rendu dans ASCAE C&I :');
+  L.push('Consulter ce compte rendu dans ASCAE C&I :');
   L.push(reportUrl(p, r));
   L.push('', 'Cordialement,');
   if (r.author || state.settings.userName) L.push(r.author || state.settings.userName);
@@ -1751,7 +1752,7 @@ function mailSheet(m) {
   const href = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
   const hrefPlain = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
   const hrefEmpty = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject);
-  const long = href.length > 1900;
+  const long = href.length > 2400;
   openSheet({
     title: m.title || 'Envoyer par e-mail', size: 'lg',
     body: `<div class="flabel">Destinataires</div>
@@ -1762,11 +1763,11 @@ function mailSheet(m) {
         <div class="mail-preview" id="mv-rich"><div class="mail-scale">${m.html}</div></div>
         <pre class="mail-body" id="mv-plain" hidden>${esc(m.body)}</pre>`
       : `<pre class="mail-body">${esc(m.body)}</pre>`}
-      ${m.html ? `<div class="notice">${ic('copy', 16)}<span><b>Pour garder cette mise en page :</b> touchez « Copier et ouvrir », puis collez dans le message qui s'ouvre. Le lien direct vers la messagerie ne transporte que du texte brut, c'est une limite du format, pas de l'application.</span></div>` : ''}
-      ${long && !m.html ? `<div class="notice warn">${ic('alert', 16)}<span>Ce message est long : certaines messageries coupent le texte pré-rempli. Utilisez « Copier » puis collez-le dans votre e-mail.</span></div>` : ''}`,
+      ${long ? `<div class="notice warn">${ic('alert', 16)}<span><b>Message long :</b> certaines messageries tronquent le texte pré-rempli. Vérifiez qu'il est complet avant d'envoyer, ou utilisez « Mise en page » puis collez dans votre e-mail.</span></div>`
+        : (m.html ? `<div class="notice">${ic('send', 16)}<span><b>Envoyer</b> ouvre votre messagerie avec le message ci-dessus, barres de couleur comprises. <b>Mise en page</b> copie la version encadrée à coller dans le message.</span></div>` : '')}`,
     foot: m.html
-      ? `<a class="btn btn-ghost" id="m-open" href="${esc(hrefPlain)}" rel="noopener">${ic('send', 17)} Texte seul</a><button class="btn btn-primary" id="m-both">${ic('copy', 17)} Copier et ouvrir</button>`
-      : `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Ouvrir la messagerie</a>`,
+      ? `<button class="btn btn-ghost" id="m-both">${ic('copy', 17)} Mise en page</button><a class="btn btn-primary" id="m-open" href="${esc(hrefPlain)}" rel="noopener">${ic('send', 17)} Envoyer</a>`
+      : `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Envoyer</a>`,
     onMount(sh) {
       $$('.segbar [data-view]', sh).forEach(b => b.onclick = () => {
         const rich = b.dataset.view === 'rich';
@@ -1798,7 +1799,7 @@ function mailSheet(m) {
       const both = $('#m-both', sh);
       if (both) both.onclick = async () => {
         const rich = await copyRich();
-        toast(rich ? 'Copié. Collez dans le message qui s\'ouvre.' : 'Copié en texte. Collez dans le message.');
+        toast(rich ? 'Mise en page copiée. Collez dans le message qui s\'ouvre.' : 'Copié en texte. Collez dans le message.');
         setTimeout(() => {
           const lnk = document.createElement('a');
           lnk.href = rich ? hrefEmpty : hrefPlain;
