@@ -444,6 +444,8 @@ td .avatars{margin-left:0}
 .segbar button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .mail-body{font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;max-height:46vh;overflow:auto}
 .field textarea.grow{min-height:48px;resize:none;overflow:hidden;line-height:1.5}
+.tlink{color:var(--info);text-decoration:underline;text-underline-offset:2px;font-weight:650}
+.tlink:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -1007,7 +1009,15 @@ function bindRanges(root) {
    Routage
    ========================================================= */
 let lastView = '';
+/* Au tout premier affichage, un grand écran s'ouvre sur la vue globale ;
+   un téléphone reste sur la liste des chantiers. Ensuite, la navigation est libre. */
+let startupDone = false;
+const bigScreen = () => matchMedia('(min-width:900px)').matches;
 function route() {
+  if (!startupDone) {
+    startupDone = true;
+    if (!location.hash.replace(/^#\/?/, '') && bigScreen()) history.replaceState(null, '', '#/global');
+  }
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   let view;
   if (parts[0] === 'global') { view = 'global'; renderGlobal(); }
@@ -2042,11 +2052,11 @@ function tabEquipe(p) {
 let gSort = { k: 'updated', dir: -1 }, gQuery = '';
 const GCOLS = [
   { k: 'name', l: 'Projet' }, { k: 'address', l: 'Adresse' }, { k: 'progress', l: 'Avancement' }, { k: 'step', l: 'Étape en cours' },
-  { k: 'open', l: 'Demandes ouvertes' }, { k: 'late', l: 'En retard' }, { k: 'reports', l: 'Comptes rendus' }, { k: 'lastReport', l: 'Dernier CR' }, { k: 'team', l: 'Équipe' }
+  { k: 'open', l: 'Demandes ouvertes' }, { k: 'late', l: 'En retard' }, { k: 'reports', l: 'Comptes rendus' }, { k: 'photos', l: 'Photos' }, { k: 'team', l: 'Équipe' }
 ];
 function rowData(p) {
   const lr = lastReport(p);
-  return { p, name: p.name, address: p.address || '', progress: progress(p), step: currentStep(p), open: openReq(p), late: lateReq(p), reports: p.reports.length, lastReport: lr ? lr.date : '', team: p.users.map(u => u.name).join(', '), updated: p.updatedAt || 0 };
+  return { p, name: p.name, address: p.address || '', progress: progress(p), step: currentStep(p), open: openReq(p), late: lateReq(p), reports: p.reports.length, lastReport: lr ? lr.date : '', photos: (p.links.photos[0] && safeUrl(p.links.photos[0].url)) || '', team: p.users.map(u => u.name).join(', '), updated: p.updatedAt || 0 };
 }
 function sortedRows() {
   const rows = state.projects.map(rowData).filter(r => matches(r.p, gQuery));
@@ -2065,7 +2075,6 @@ function renderGlobal() {
     <header class="appbar">
       <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
       <div class="titlebox"><h1>Vue globale</h1><span class="hint">Synthèse de ${plural(n, 'projet')}</span></div>
-      <button class="btn btn-ghost btn-sm hide-sm" data-act="copy-table">${ic('copy', 16)} Copier pour Excel</button>
       <button class="icon-btn" data-act="export-csv" aria-label="Exporter en CSV" title="Exporter en CSV">${ic('download')}</button>
     </header>
     <div class="kpis four">
@@ -2093,13 +2102,13 @@ function renderGTable() {
     <td class="num">${r.open ? `<span class="pill st-ouverte">${r.open}</span>` : '<span class="muted">0</span>'}</td>
     <td class="num">${r.late ? `<span class="pill pr-haute">${r.late}</span>` : '<span class="muted">0</span>'}</td>
     <td class="num">${r.reports}</td>
-    <td>${r.lastReport ? fmtDate(r.lastReport) : '<span class="muted">—</span>'}</td>
+    <td>${r.photos ? `<a class="tlink" href="${esc(r.photos)}" target="_blank" rel="noopener" data-stop>Photos</a>` : '<span class="muted">—</span>'}</td>
     <td><span class="avatars">${r.p.users.slice(0, 5).map(u => avatar(u.name)).join('')}</span></td>
   </tr>`).join('')}</tbody></table>${rows.length ? '' : '<div class="empty-line" style="margin:12px">Aucun projet ne correspond au filtre.</div>'}`;
 }
 function tableMatrix() {
-  return [['Projet', 'Adresse', 'Avancement (%)', 'Étape en cours', 'Demandes ouvertes', 'Demandes en retard', 'Comptes rendus', 'Dernier CR', 'Équipe'],
-    ...sortedRows().map(r => [r.name, r.address, r.progress, r.step, r.open, r.late, r.reports, r.lastReport ? fmtDate(r.lastReport) : '', r.team])];
+  return [['Projet', 'Adresse', 'Avancement (%)', 'Étape en cours', 'Demandes ouvertes', 'Demandes en retard', 'Comptes rendus', 'Photos', 'Équipe'],
+    ...sortedRows().map(r => [r.name, r.address, r.progress, r.step, r.open, r.late, r.reports, r.photos || '', r.team])];
 }
 
 /* =========================================================
@@ -2165,13 +2174,14 @@ const ACTS = {
   'new-contact': el => contactForm(findP(el)),
   'edit-contact': el => { const p = findP(el), c = p && p.contacts.find(x => x.id === el.dataset.cid); if (c) contactForm(p, c); },
   gsort: el => { const k = el.dataset.k; if (gSort.k === k) gSort.dir *= -1; else gSort = { k, dir: ['progress', 'open', 'late', 'reports', 'lastReport'].includes(k) ? -1 : 1 }; renderGTable(); },
-  'copy-table': () => copyText(tableMatrix().map(r => r.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n'), 'Tableau copié : collez-le dans Excel'),
   'export-csv': () => {
     const csv = '\ufeff' + tableMatrix().map(r => r.map(v => { const s = String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(';')).join('\r\n');
     downloadFile(csv, `synthese-projets-${today()}.csv`, 'text/csv;charset=utf-8');
   }
 };
 document.addEventListener('click', e => {
+  /* Un lien marqué data-stop agit seul, sans déclencher l'action de sa ligne. */
+  if (e.target.closest('[data-stop]')) return;
   const el = e.target.closest('[data-act]');
   if (!el || !el.dataset.act) return;
   const fn = ACTS[el.dataset.act]; if (!fn) return;
