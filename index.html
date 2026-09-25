@@ -291,8 +291,10 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .sheet-head h2{flex:1;font-size:21px;font-weight:800;font-stretch:80%}
 .sheet-body{padding:8px 20px 18px;overflow-y:auto;overflow-x:hidden;flex:1;overscroll-behavior:contain}
 .sheet-body *{max-width:100%}
-.sheet-foot{padding:12px 20px 14px;display:flex;gap:8px;border-top:1px solid var(--border);flex:none}
-.sheet-foot .btn{flex:1}
+.sheet-foot{padding:12px 16px 14px;display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--border);flex:none}
+.sheet-foot .btn{flex:1 1 130px;min-width:0;padding-left:12px;padding-right:12px;white-space:nowrap}
+.sheet-foot .btn-icon{flex:0 0 auto}
+@media (max-width:390px){.sheet-foot .btn{font-size:14px;gap:6px}.sheet-foot .btn svg{width:16px;height:16px}}
 
 .dialog{position:relative;width:min(400px,100%);background:var(--surface);border-radius:14px;padding:24px 22px 18px;text-align:center;animation:fade .15s}
 .dialog-ic{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;margin:0 auto 12px;background:var(--info-bg);color:var(--info)}
@@ -535,6 +537,7 @@ function normalize(d) {
   return d;
 }
 function save() {
+  sheetDirty = false;
   try { localStorage.setItem(LS_PREFS, JSON.stringify(state.settings)); } catch (e) {}
   pushChanges();
 }
@@ -897,15 +900,42 @@ function openSheet({ title, body, foot = '', onMount, size = '' }) {
   sheetOpenedAt = Date.now();
   const sh = $('.sheet', root);
   if (onMount) onMount(sh);
+  /* Une feuille qui contient un formulaire est protégée contre la fermeture accidentelle. */
+  sheetDirty = false;
+  sheetGuard = !!sh.querySelector('form');
+  if (sheetGuard) {
+    const mark = () => { sheetDirty = true; };
+    sh.addEventListener('input', mark);
+    sh.addEventListener('change', mark);
+  }
   const f = sh.querySelector('[autofocus]');
   if (f && matchMedia('(min-width:720px)').matches) setTimeout(() => f.focus(), 60);
   return sh;
 }
-function closeSheet() {
+let sheetGuard = false, sheetDirty = false;
+function dropSheet() {
   const root = $('#sheet-root');
   root.classList.remove('open'); root.innerHTML = '';
   document.body.classList.remove('noscroll');
+  sheetGuard = false; sheetDirty = false;
 }
+function closeSheet(force) {
+  const root = $('#sheet-root');
+  if (!root.classList.contains('open')) return;
+  if (force !== true && sheetGuard && sheetDirty) {
+    confirmDialog({
+      title: 'Abandonner les modifications ?',
+      message: "Ce que vous venez de saisir ne sera pas enregistré.",
+      confirm: 'Abandonner', danger: true
+    }).then(ok => { if (ok) dropSheet(); });
+    return;
+  }
+  dropSheet();
+}
+/* Prévient aussi si l'on quitte l'application en pleine saisie. */
+addEventListener('beforeunload', e => {
+  if (sheetGuard && sheetDirty) { e.preventDefault(); e.returnValue = ''; }
+});
 $('#sheet-root').addEventListener('click', e => {
   const c = e.target.closest('[data-sheet-close]');
   if (!c) return;
@@ -1095,7 +1125,7 @@ function projectForm(p) {
       <div class="member-grid">
         <input class="input" data-f="name" placeholder="Nom et prénom" value="${esc(u.name)}" autocomplete="name">
         <input class="input" data-f="email" type="email" inputmode="email" placeholder="adresse@entreprise.fr" value="${esc(u.email)}" autocomplete="email">
-        <input class="input" data-f="phone" type="tel" inputmode="tel" placeholder="06 12 34 56 78" value="${esc(u.phone || '')}" autocomplete="tel">
+        <input class="input" data-f="phone" type="tel" inputmode="tel" placeholder="Téléphone" value="${esc(u.phone || '')}" autocomplete="tel">
         <select class="input" data-f="role">${ROLES.map(r => `<option ${r === u.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
       </div>
       <button type="button" class="mini" data-rm aria-label="Retirer cet utilisateur">${ic('trash', 18)}</button>
@@ -1512,62 +1542,89 @@ function reportMail(p, r) {
 /* Compte rendu mis en forme, destiné au presse-papier puis à la messagerie.
    Styles en ligne uniquement : les clients de messagerie ignorent les feuilles de style. */
 function reportHtml(p, r) {
-  const BL = '#1E2B3A', JA = '#FFC21A', GR = '#6B7885', BD = '#DDE2E7';
+  const BL = '#1E2B3A', JA = '#FFC21A', VE = '#2E9E6A', GR = '#6B7885';
+  const BD = '#E2E6EB', FD = '#F4F6F8';
   const pct = r.progressAt != null ? r.progressAt : progress(p);
+  const sent = r.status === 'valide';
   const q = linkedRequest(p, r);
   const snap = r.stepsSnapshot || [];
   const E = esc;
 
-  const bar = (v, h, col) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;background:#EDEFF2;border-radius:${h}px"><tr>
-    <td width="${v}%" style="height:${h}px;background:${col};border-radius:${h}px;font-size:1px;line-height:${h}px">&nbsp;</td>
-    <td style="font-size:1px;line-height:${h}px">&nbsp;</td></tr></table>`;
+  /* Dix cellules, comme dans l'application. Tables imbriquées : les messageries
+     ignorent display:inline-block, pas les cellules de tableau. */
+  const cells = v => {
+    const lit = v / 10; let td = '';
+    for (let i = 0; i < 10; i++) {
+      const on = i < Math.floor(lit), half = !on && i < lit;
+      const bg = on ? (v >= 100 ? VE : JA) : (half ? '#FFE9A8' : '#EDEFF2');
+      td += `<td width="10" style="background:${bg};border-radius:2px;font-size:1px;line-height:9px;height:9px">&nbsp;</td>
+             ${i < 9 ? '<td width="3" style="font-size:1px;line-height:9px">&nbsp;</td>' : ''}`;
+    }
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate"><tr>${td}</tr></table>`;
+  };
 
-  const meta = [
+  const cell = (k, v) => `<td width="50%" style="padding:9px 12px;vertical-align:top">
+      <div style="font-size:12.5px;color:${GR};padding-bottom:3px">${k}</div>
+      <div style="font-size:15px;font-weight:700;color:${BL};word-break:break-word">${v}</div></td>`;
+
+  const infos = [
     ['Date', fmtDate(r.date)],
-    r.author ? ['Rédigé par', E(r.author)] : null,
-    r.presents ? ['Présents', E(r.presents)] : null,
-    p.address ? ['Adresse', E(p.address)] : null,
-    q ? ['Suite à la demande', E(q.title)] : null
-  ].filter(Boolean).map(([k, v]) =>
-    `<tr><td style="padding:5px 14px 5px 0;color:${GR};font-size:13px;white-space:nowrap;vertical-align:top">${k}</td>
-         <td style="padding:5px 0;font-size:14px;color:${BL};vertical-align:top">${v}</td></tr>`).join('');
+    ['Rédigé par', E(r.author || '—')],
+    ['Avancement à cette date', pct + '&nbsp;%'],
+    ['Dernière diffusion', r.sentAt ? fmtDate(r.sentAt) : fmtDate(Date.now())]
+  ];
+  if (r.presents) infos.push(['Présents', E(r.presents)]);
+  if (q) infos.push(['Demande liée', E(q.title)]);
+  if (p.address) infos.push(['Adresse', E(p.address)]);
+  if (infos.length % 2) infos.push(['', '']);
 
-  const sec = (t, c) => c ? `<tr><td style="padding:20px 24px 0">
-      <div style="font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:${GR};border-bottom:2px solid ${JA};padding-bottom:5px;margin-bottom:9px">${t}</div>
-      <div style="font-size:14px;line-height:1.55;color:#22303F;white-space:pre-wrap">${E(c)}</div></td></tr>` : '';
+  let rows = '';
+  for (let i = 0; i < infos.length; i += 2) {
+    rows += `<tr>${cell(infos[i][0], infos[i][1])}${infos[i + 1][0] ? cell(infos[i + 1][0], infos[i + 1][1]) : '<td width="50%"></td>'}</tr>`;
+  }
 
-  const steps = snap.length ? `<tr><td style="padding:20px 24px 0">
-      <div style="font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:${GR};border-bottom:2px solid ${JA};padding-bottom:5px;margin-bottom:11px">Avancement des étapes</div>
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${snap.map(st => {
-        const v = st.progress || 0, col = v >= 100 ? '#2E9E6A' : (v > 0 ? JA : '#C8CED6');
-        return `<tr><td style="padding:0 0 9px">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-            <td style="font-size:13.5px;color:${BL};padding-bottom:4px">${v >= 100 ? '&#10003; ' : ''}${E(st.name)}</td>
-            <td align="right" style="font-size:13px;font-weight:700;color:${v >= 100 ? '#2E9E6A' : BL};padding-bottom:4px">${v}&nbsp;%</td>
-          </tr></table>${bar(v, 6, col)}</td></tr>`;
-      }).join('')}</table></td></tr>` : '';
+  const sec = (t, c) => c ? `<tr><td style="padding:22px 24px 0">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="4" style="background:${JA};border-radius:2px;font-size:1px">&nbsp;</td>
+        <td width="11" style="font-size:1px">&nbsp;</td>
+        <td style="font-size:16px;font-weight:700;color:${BL}">${t}</td>
+      </tr></table>
+      <div style="font-size:14.5px;line-height:1.55;color:#22303F;white-space:pre-wrap;padding:9px 0 0 15px">${E(c)}</div>
+    </td></tr>` : '';
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F4F6F8;padding:0;margin:0">
+  const steps = snap.length ? `<tr><td style="padding:22px 24px 0">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="4" style="background:${JA};border-radius:2px;font-size:1px">&nbsp;</td>
+        <td width="11" style="font-size:1px">&nbsp;</td>
+        <td style="font-size:16px;font-weight:700;color:${BL}">Avancement des étapes</td>
+      </tr></table>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding-top:11px">
+        ${snap.map(st => {
+          const v = st.progress || 0;
+          return `<tr>
+            <td style="padding:5px 10px 5px 15px;font-size:14px;color:#22303F">${E(st.name)}</td>
+            <td align="right" style="padding:5px 10px;width:150px">${cells(v)}</td>
+            <td align="right" style="padding:5px 0;font-size:14px;font-weight:700;color:${v >= 100 ? VE : BL};width:52px">${v}%</td>
+          </tr>`;
+        }).join('')}
+      </table></td></tr>` : '';
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${FD};margin:0">
   <tr><td align="center" style="padding:0">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="620" style="max-width:620px;background:#FFFFFF;border:1px solid ${BD};border-radius:10px;overflow:hidden;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="620" style="max-width:620px;background:#FFFFFF;border:1px solid ${BD};border-radius:12px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif">
 
-      <tr><td style="background:${BL};padding:20px 24px">
-        <div style="color:${JA};font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase">Compte rendu d'intervention</div>
-        <div style="color:#FFFFFF;font-size:21px;font-weight:700;padding-top:5px">${E(p.name)}</div>
-        ${r.title ? `<div style="color:#AFBAC6;font-size:14px;padding-top:3px">${E(r.title)}</div>` : ''}
+      <tr><td style="padding:24px 24px 0">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:${GR}">${E(p.name)}</div>
+        <div style="font-size:26px;font-weight:800;color:${BL};letter-spacing:-.01em;padding-top:6px">${E(r.title || "Compte rendu d'intervention")}</div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="padding-top:12px"><tr>
+          <td style="background:${sent ? '#E3F4EC' : '#FFF4D6'};border-radius:999px;padding:6px 14px;font-size:13.5px;font-weight:700;color:${sent ? VE : '#B87900'}">
+            &bull;&nbsp; ${sent ? 'Validé et diffusé' : 'Brouillon'}</td>
+        </tr></table>
       </td></tr>
 
       <tr><td style="padding:18px 24px 0">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-          <td style="font-size:13px;color:${GR};font-weight:600">Avancement global du chantier</td>
-          <td align="right" style="font-size:22px;font-weight:700;color:${BL}">${pct}&nbsp;%</td>
-        </tr></table>
-        <div style="padding-top:7px">${bar(pct, 12, pct >= 100 ? '#2E9E6A' : JA)}</div>
-      </td></tr>
-
-      <tr><td style="padding:16px 24px 0">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F7F9FB;border:1px solid ${BD};border-radius:8px">
-          <tr><td style="padding:10px 14px"><table role="presentation" cellpadding="0" cellspacing="0" border="0">${meta}</table></td></tr>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${FD};border-radius:10px">
+          ${rows}
         </table>
       </td></tr>
 
@@ -1576,16 +1633,15 @@ function reportHtml(p, r) {
       ${sec('Actions à prévoir', r.actions)}
       ${steps}
 
-      <tr><td style="padding:22px 24px 24px">
-        <div style="font-size:14px;color:#22303F">Cordialement,<br><b>${E(r.author || state.settings.userName || '')}</b></div>
+      <tr><td style="padding:24px">
+        <div style="font-size:14.5px;color:#22303F">Cordialement,<br><b>${E(r.author || state.settings.userName || '')}</b></div>
       </td></tr>
-      <tr><td style="background:#F7F9FB;border-top:1px solid ${BD};padding:11px 24px;font-size:11.5px;color:${GR}">
-        ASCAE C&amp;I — compte rendu diffusé le ${fmtDate(Date.now())}
+      <tr><td style="border-top:1px solid ${BD};padding:12px 24px;font-size:11.5px;color:${GR}">
+        ASCAE C&amp;I &mdash; ${E(p.name)}
       </td></tr>
     </table>
   </td></tr></table>`;
 }
-
 function viewReport(p, r) {
   const d = toDate(r.date), sent = r.status === 'valide';
   const sec = (t, c) => c ? `<div class="rv-sec"><h4>${t}</h4><p class="prewrap">${esc(c)}</p></div>` : '';
