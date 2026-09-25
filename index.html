@@ -434,8 +434,15 @@ td .avatars{margin-left:0}
 .cr-steps.locked input[type=range]{pointer-events:none}
 .mini.on{background:var(--info-bg);color:var(--info)}
 .member-grid{gap:6px}
-.mail-preview{border:1px solid var(--border);border-radius:9px;overflow:auto;max-height:52vh;background:#F4F6F8;-webkit-overflow-scrolling:touch}
+.mail-preview{border:1px solid var(--border);border-radius:9px;overflow:hidden auto;max-height:46vh;background:#F4F6F8;-webkit-overflow-scrolling:touch}
+.mail-scale{width:640px;zoom:.56;transform-origin:top left}
 .mail-preview table{max-width:none}
+@supports not (zoom:1){.mail-scale{zoom:normal;transform:scale(.56);width:640px;margin-bottom:-44%}}
+@media (min-width:760px){.mail-scale{zoom:.78}@supports not (zoom:1){.mail-scale{transform:scale(.78);margin-bottom:-22%}}}
+.segbar{display:flex;gap:4px;background:var(--surface-2);border-radius:9px;padding:4px;margin-bottom:9px}
+.segbar button{flex:1;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:650;color:var(--muted);background:none;border:0}
+.segbar button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.mail-body{font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;max-height:46vh;overflow:auto}
 </style>
 </head>
 <body>
@@ -550,6 +557,10 @@ function normGps(v) {
   if (!isFinite(la) || !isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) return '';
   return la + ',' + lo;
 }
+/* Adresse de l'app telle qu'elle est hébergée, pour les liens envoyés par e-mail. */
+const appBase = () => location.origin + location.pathname.replace(/index\.html$/, '');
+const projectUrl = (p, tab) => appBase() + '#/p/' + p.id + '/' + (tab || 'suivi');
+const reportUrl = (p, r) => appBase() + '#/p/' + p.id + '/suivi/cr/' + r.id;
 const gpsUrl = g => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(g);
 /* Rédacteur courant : nom renseigné, sinon nom du compte, sinon adresse. */
 function meName() {
@@ -999,7 +1010,19 @@ function route() {
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   let view;
   if (parts[0] === 'global') { view = 'global'; renderGlobal(); }
-  else if (parts[0] === 'p' && parts[1] && getP(parts[1])) { view = 'p/' + parts[1]; renderProject(getP(parts[1]), parts[2] || 'demandes'); }
+  else if (parts[0] === 'p' && parts[1] && getP(parts[1])) {
+    const pr = getP(parts[1]);
+    view = 'p/' + parts[1];
+    renderProject(pr, parts[2] || 'demandes');
+    /* Lien reçu par e-mail : on ouvre directement la fiche visée, puis on nettoie l'adresse. */
+    if (parts[3] === 'cr' && parts[4]) {
+      const rr = pr.reports.find(x => x.id === parts[4]);
+      const rq = pr.requests.find(x => x.id === parts[4]);
+      history.replaceState(null, '', '#/p/' + pr.id + '/' + (parts[2] || 'suivi'));
+      if (rr) setTimeout(() => viewReport(pr, rr), 80);
+      else if (rq) setTimeout(() => viewRequest(pr, rq), 80);
+    }
+  }
   else { view = 'home'; renderHome(); }
   if (view !== lastView) { window.scrollTo(0, 0); lastView = view; }
 }
@@ -1394,6 +1417,7 @@ function requestMail(p, r) {
   if (r.dueDate) L.push(`Échéance : ${fmtDate(r.dueDate)}`);
   if (p.address) L.push(`Adresse du chantier : ${p.address}`);
   if (r.description) L.push('', 'Description :', r.description);
+  L.push('', '\u25B8 Ouvrir cette demande dans ASCAE C&I :', appBase() + '#/p/' + p.id + '/suivi/cr/' + r.id);
   L.push('', 'Cordialement,'); if (state.settings.userName) L.push(state.settings.userName);
   return { to: u && u.email ? [u.email] : [], subject: `[${p.name}] Demande d'intervention : ${r.title}`, body: L.join('\n'), title: 'Envoyer la demande' };
 }
@@ -1525,22 +1549,62 @@ function reportForm(p, r, opts) {
 }
 function reportMail(p, r) {
   const to = p.users.filter(u => u.email).map(u => u.email);
-  const L = ["COMPTE RENDU D'INTERVENTION", '', `Projet : ${p.name}`];
-  if (p.address) L.push(`Adresse : ${p.address}`);
-  L.push(`Date : ${fmtDate(r.date)}`);
-  { const q = linkedRequest(p, r); if (q) L.push(`Suite à la demande : ${q.title}`); }
-  if (r.author) L.push(`Rédigé par : ${r.author}`);
-  if (r.presents) L.push(`Présents : ${r.presents}`);
-  L.push(`Avancement global : ${r.progressAt != null ? r.progressAt : progress(p)} %`);
-  const sec = (t, c) => { if (c) L.push('', t.toUpperCase(), c); };
-  sec('Travaux réalisés', r.works); sec('Observations et réserves', r.observations); sec('Actions à prévoir', r.actions);
+  const pct = r.progressAt != null ? r.progressAt : progress(p);
+  const q = linkedRequest(p, r);
   const snap = r.stepsSnapshot || [];
-  if (snap.length) { L.push('', 'AVANCEMENT DES ÉTAPES'); snap.forEach(s => L.push(`- ${s.name} : ${s.progress} %`)); }
-  L.push('', 'Cordialement,'); if (r.author || state.settings.userName) L.push(r.author || state.settings.userName);
-  return { to, subject: `[${p.name}] Compte rendu d'intervention du ${fmtDate(r.date)}${r.title ? ' : ' + r.title : ''}`, body: L.join('\n'), html: reportHtml(p, r), title: 'Diffuser le compte rendu' };
+
+  /* Barre colorée en caractères Unicode : c'est la seule couleur que
+     le texte brut d'un mailto sait transporter. */
+  const bar = v => {
+    const lit = v >= 100 ? 10 : Math.min(9, Math.floor(v / 10));
+    const plein = v >= 100 ? '\u{1F7E9}' : '\u{1F7E8}';
+    return plein.repeat(lit) + '\u2B1C'.repeat(10 - lit);
+  };
+  const RULE = '\u2500'.repeat(34);
+
+  const L = [];
+  L.push("COMPTE RENDU D'INTERVENTION");
+  L.push(p.name + (r.title ? '  \u2014  ' + r.title : ''));
+  L.push(RULE, '');
+  L.push('Avancement global du chantier');
+  L.push(bar(pct) + '  ' + pct + ' %', '');
+
+  L.push('Date : ' + fmtDate(r.date));
+  if (r.author) L.push('Rédigé par : ' + r.author);
+  if (r.presents) L.push('Présents : ' + r.presents);
+  if (p.address) L.push('Adresse : ' + p.address);
+  if (q) L.push('Suite à la demande : ' + q.title);
+
+  const sec = (t, c) => { if (c) L.push('', RULE, '\u25AE ' + t.toUpperCase(), '', c); };
+  sec('Travaux réalisés', r.works);
+  sec('Observations et réserves', r.observations);
+  sec('Actions à prévoir', r.actions);
+
+  if (snap.length) {
+    L.push('', RULE, '\u25AE AVANCEMENT DES ÉTAPES', '');
+    snap.forEach(st => {
+      const v = st.progress || 0;
+      L.push(st.name);
+      L.push(bar(v) + '  ' + v + ' %' + (v >= 100 ? '  \u2713' : ''), '');
+    });
+    L.pop();
+  }
+
+  L.push('', RULE, '');
+  L.push('\u25B8 Consulter ce compte rendu dans ASCAE C&I :');
+  L.push(reportUrl(p, r));
+  L.push('', 'Cordialement,');
+  if (r.author || state.settings.userName) L.push(r.author || state.settings.userName);
+  L.push('', 'ASCAE C&I \u2014 ' + p.name);
+
+  return {
+    to,
+    subject: `[${p.name}] Compte rendu d'intervention du ${fmtDate(r.date)}${r.title ? ' : ' + r.title : ''}`,
+    body: L.join('\n'),
+    html: reportHtml(p, r),
+    title: 'Diffuser le compte rendu'
+  };
 }
-/* Compte rendu mis en forme, destiné au presse-papier puis à la messagerie.
-   Styles en ligne uniquement : les clients de messagerie ignorent les feuilles de style. */
 function reportHtml(p, r) {
   const BL = '#1E2B3A', JA = '#FFC21A', VE = '#2E9E6A', GR = '#6B7885';
   const BD = '#E2E6EB', FD = '#F4F6F8';
@@ -1633,7 +1697,16 @@ function reportHtml(p, r) {
       ${sec('Actions à prévoir', r.actions)}
       ${steps}
 
-      <tr><td style="padding:24px">
+      <tr><td style="padding:24px 24px 0">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="background:${BL};border-radius:8px">
+            <a href="${reportUrl(p, r)}" style="display:inline-block;padding:12px 20px;font-size:14px;font-weight:700;color:#FFFFFF;text-decoration:none">Ouvrir dans ASCAE C&amp;I &rarr;</a>
+          </td>
+        </tr></table>
+        <div style="font-size:12px;color:${GR};padding-top:8px">Accessible aux membres de l'équipe du chantier.</div>
+      </td></tr>
+
+      <tr><td style="padding:22px 24px 24px">
         <div style="font-size:14.5px;color:#22303F">Cordialement,<br><b>${E(r.author || state.settings.userName || '')}</b></div>
       </td></tr>
       <tr><td style="border-top:1px solid ${BD};padding:12px 24px;font-size:11.5px;color:${GR}">
@@ -1676,6 +1749,8 @@ function viewReport(p, r) {
 /* ---------- Envoi par e-mail ---------- */
 function mailSheet(m) {
   const href = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
+  const hrefPlain = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
+  const hrefEmpty = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject);
   const long = href.length > 1900;
   openSheet({
     title: m.title || 'Envoyer par e-mail', size: 'lg',
@@ -1683,14 +1758,29 @@ function mailSheet(m) {
       <div class="recips">${m.to.length ? m.to.map(e => `<span class="chip">${ic('mail', 13)}<span>${esc(e)}</span></span>`).join('') : '<span class="hint">Aucune adresse e-mail renseignée : vous pourrez choisir les destinataires dans votre messagerie.</span>'}</div>
       <div class="flabel">Objet</div><div class="mail-subj">${esc(m.subject)}</div>
       <div class="flabel">Message</div>
-      ${m.html ? `<div class="mail-preview">${m.html}</div>` : `<pre class="mail-body">${esc(m.body)}</pre>`}
-      ${long ? `<div class="notice warn">${ic('alert', 16)}<span>Ce message est long : certaines messageries coupent le texte pré-rempli. Si c'est le cas, utilisez « Copier » puis collez-le dans votre e-mail.</span></div>` : ''}`,
-    foot: `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} ${m.html ? 'Copier mis en forme' : 'Copier'}</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Ouvrir la messagerie</a>`,
+      ${m.html ? `<div class="segbar"><button type="button" class="on" data-view="rich">Mis en forme</button><button type="button" data-view="plain">Texte envoyé</button></div>
+        <div class="mail-preview" id="mv-rich"><div class="mail-scale">${m.html}</div></div>
+        <pre class="mail-body" id="mv-plain" hidden>${esc(m.body)}</pre>`
+      : `<pre class="mail-body">${esc(m.body)}</pre>`}
+      ${m.html ? `<div class="notice">${ic('copy', 16)}<span><b>Pour garder cette mise en page :</b> touchez « Copier et ouvrir », puis collez dans le message qui s'ouvre. Le lien direct vers la messagerie ne transporte que du texte brut, c'est une limite du format, pas de l'application.</span></div>` : ''}
+      ${long && !m.html ? `<div class="notice warn">${ic('alert', 16)}<span>Ce message est long : certaines messageries coupent le texte pré-rempli. Utilisez « Copier » puis collez-le dans votre e-mail.</span></div>` : ''}`,
+    foot: m.html
+      ? `<a class="btn btn-ghost" id="m-open" href="${esc(hrefPlain)}" rel="noopener">${ic('send', 17)} Texte seul</a><button class="btn btn-primary" id="m-both">${ic('copy', 17)} Copier et ouvrir</button>`
+      : `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Ouvrir la messagerie</a>`,
     onMount(sh) {
+      $$('.segbar [data-view]', sh).forEach(b => b.onclick = () => {
+        const rich = b.dataset.view === 'rich';
+        $$('.segbar [data-view]', sh).forEach(x => x.classList.toggle('on', x === b));
+        $('#mv-rich', sh).hidden = !rich;
+        $('#mv-plain', sh).hidden = rich;
+      });
       const a = $('#m-open', sh);
-      if (window.self !== window.top) a.target = '_blank';
-      a.addEventListener('click', () => setTimeout(closeSheet, 400));
-      $('#m-copy', sh).onclick = async () => {
+      if (a) {
+        if (window.self !== window.top) a.target = '_blank';
+        a.addEventListener('click', () => setTimeout(() => closeSheet(true), 400));
+      }
+
+      async function copyRich() {
         const plain = `À : ${m.to.join(', ')}\nObjet : ${m.subject}\n\n${m.body}`;
         if (m.html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
           try {
@@ -1698,12 +1788,28 @@ function mailSheet(m) {
               'text/html': new Blob([m.html], { type: 'text/html' }),
               'text/plain': new Blob([plain], { type: 'text/plain' })
             })]);
-            toast('Compte rendu copié, collez-le dans votre e-mail');
-            return;
+            return true;
           } catch (e) { /* on retombe sur le texte simple */ }
         }
         copyText(plain, 'Message copié');
+        return false;
+      }
+
+      const both = $('#m-both', sh);
+      if (both) both.onclick = async () => {
+        const rich = await copyRich();
+        toast(rich ? 'Copié. Collez dans le message qui s\'ouvre.' : 'Copié en texte. Collez dans le message.');
+        setTimeout(() => {
+          const lnk = document.createElement('a');
+          lnk.href = rich ? hrefEmpty : hrefPlain;
+          lnk.rel = 'noopener';
+          if (window.self !== window.top) lnk.target = '_blank';
+          document.body.appendChild(lnk); lnk.click(); lnk.remove();
+          setTimeout(() => closeSheet(true), 500);
+        }, 550);
       };
+      const cp = $('#m-copy', sh);
+      if (cp) cp.onclick = () => copyText(`À : ${m.to.join(', ')}\nObjet : ${m.subject}\n\n${m.body}`, 'Message copié');
     }
   });
 }
