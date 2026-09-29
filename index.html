@@ -476,11 +476,11 @@ td .avatars{margin-left:0}
     <p class="auth-err" id="au-err" hidden></p>
     <button class="btn btn-primary btn-block" id="au-go">Se connecter</button>
     <div class="auth-alt">
-      <button class="auth-link" id="au-mode">Premier accès ? Créer mon compte</button>
       <button class="auth-link" id="au-forgot">Mot de passe oublié</button>
+      <button class="auth-link" id="au-request">Pas encore de compte ? Demander un accès</button>
     </div>
     </div>
-    <p class="auth-foot">Vos chantiers sont synchronisés entre tous vos appareils. Vous ne voyez que les projets dont votre adresse fait partie de l'équipe.</p>
+    <p class="auth-foot">Tous les chantiers de l'équipe sont synchronisés entre tous vos appareils. Vous ne voyez que les projets dont votre adresse fait partie de l'équipe.</p>
   </div>
 </div>
 <div id="syncbar" class="syncbar" hidden><span class="syncdot"></span><span id="syncmsg"></span></div>
@@ -662,8 +662,9 @@ function applySnapshot(list) {
 
 function startSync() {
   if (FB.stop) FB.stop();
-  const q = query(PROJETS, where('memberEmails', 'array-contains', FB.email));
-  FB.stop = onSnapshot(q, snap => {
+  /* Toute l'équipe voit tous les chantiers : pas de filtre par membre côté requête,
+     les règles Firestore n'exigent plus qu'une session valide. */
+  FB.stop = onSnapshot(PROJETS, snap => {
     const list = [];
     snap.forEach(d => {
       const p = d.data();
@@ -716,23 +717,13 @@ const AUTH_MSG = {
 };
 function authSetup() {
   const box = $('#auth'), mail = $('#au-mail'), pass = $('#au-pass');
-  const err = $('#au-err'), go = $('#au-go'), mode = $('#au-mode'), sub = $('#au-sub');
-  let creating = false;
+  const err = $('#au-err'), go = $('#au-go');
 
   const fail = e => {
     err.textContent = AUTH_MSG[e && e.code] || "Connexion impossible" + (e && e.code ? ' (' + e.code + ')' : '');
     err.hidden = false;
   };
-  const busy = on => { go.disabled = on; go.textContent = on ? 'Patientez…' : (creating ? 'Créer mon compte' : 'Se connecter'); };
-
-  mode.onclick = () => {
-    creating = !creating;
-    err.hidden = true;
-    sub.textContent = creating ? 'Créez votre compte avec votre adresse professionnelle' : 'Connectez-vous pour retrouver vos chantiers';
-    go.textContent = creating ? 'Créer mon compte' : 'Se connecter';
-    mode.textContent = creating ? "J'ai déjà un compte" : 'Premier accès ? Créer mon compte';
-    pass.autocomplete = creating ? 'new-password' : 'current-password';
-  };
+  const busy = on => { go.disabled = on; go.textContent = on ? 'Patientez…' : 'Se connecter'; };
 
   go.onclick = async () => {
     const m = mail.value.trim(), pw = pass.value;
@@ -742,14 +733,20 @@ function authSetup() {
     mail.classList.remove('invalid'); pass.classList.remove('invalid');
     busy(true);
     try {
-      if (creating) {
-        const cred = await createUserWithEmailAndPassword(fbAuth, m, pw);
-        if (state.settings.userName) await updateProfile(cred.user, { displayName: state.settings.userName }).catch(() => {});
-      } else {
-        await signInWithEmailAndPassword(fbAuth, m, pw);
-      }
+      await signInWithEmailAndPassword(fbAuth, m, pw);
       pass.value = '';
     } catch (e) { fail(e); } finally { busy(false); }
+  };
+
+  $('#au-request').onclick = () => {
+    const m = mail.value.trim();
+    const sujet = "Demande d'accès à ASCAE C&I" + (m ? ' — ' + m : '');
+    const corps = m
+      ? `Bonjour,\n\nJe souhaiterais avoir accès à l'application ASCAE C&I.\nMon adresse : ${m}\n\nMerci.`
+      : `Bonjour,\n\nJe souhaiterais avoir accès à l'application ASCAE C&I.\n\nMerci.`;
+    const lnk = document.createElement('a');
+    lnk.href = 'mailto:j.guionie@apexenergies.fr?subject=' + encodeURIComponent(sujet) + '&body=' + encodeURIComponent(corps);
+    document.body.appendChild(lnk); lnk.click(); lnk.remove();
   };
 
   $('#au-forgot').onclick = async () => {
@@ -775,7 +772,6 @@ function authSetup() {
     } else {
       FB.user = null; FB.email = ''; FB.ready = false;
       $('#au-form').hidden = false;
-      $('#au-sub').textContent = creating ? 'Créez votre compte avec votre adresse professionnelle' : 'Connectez-vous pour retrouver vos chantiers';
       if (FB.stop) { FB.stop(); FB.stop = null; }
       seenFp.clear();
       state.projects = [];
@@ -1862,25 +1858,37 @@ function viewReport(p, r) {
 }
 
 /* ---------- Envoi par e-mail ---------- */
-/* Aucun navigateur ne signale l'échec d'un lien mailto. On le déduit :
-   si la page garde le focus après le clic, aucune application ne s'est ouverte. */
+/* Aucun navigateur ne signale l'échec d'un lien mailto. On le déduit de l'absence
+   de départ : tant que la page garde le focus, rien ne s'est ouvert. On surveille
+   pendant plusieurs secondes, car une messagerie démarrée à froid est lente. */
 function watchMailto() {
-  let parti = false;
-  const marque = () => { parti = true; };
-  addEventListener('blur', marque, { once: true });
-  addEventListener('pagehide', marque, { once: true });
-  document.addEventListener('visibilitychange', marque, { once: true });
-  setTimeout(() => {
-    removeEventListener('blur', marque);
-    removeEventListener('pagehide', marque);
-    document.removeEventListener('visibilitychange', marque);
-    if (parti || document.hidden || !document.hasFocus()) return;
+  const DUREE = 8000, PAS = 400;
+  let fini = false;
+  const stop = () => {
+    if (fini) return;
+    fini = true;
+    clearInterval(sonde);
+    removeEventListener('blur', stop);
+    removeEventListener('pagehide', stop);
+    document.removeEventListener('visibilitychange', stop);
+  };
+  addEventListener('blur', stop, { once: true });
+  addEventListener('pagehide', stop, { once: true });
+  document.addEventListener('visibilitychange', stop, { once: true });
+
+  const t0 = Date.now();
+  const sonde = setInterval(() => {
+    if (fini) return;
+    /* Un départ vers une autre application retire le focus ou masque la page. */
+    if (document.hidden || !document.hasFocus()) return stop();
+    if (Date.now() - t0 < DUREE) return;
+    stop();
     confirmDialog({
       title: "Votre messagerie ne s'est pas ouverte",
-      message: "Aucune application n'est associée aux liens e-mail sur ce poste. Dans Windows, ouvrez Paramètres, Applications, Applications par défaut, cherchez Outlook et associez le type de lien MAILTO. En attendant, le bouton « Mise en page » copie le compte rendu à coller dans un message.",
+      message: "Aucune application ne semble associée aux liens e-mail sur ce poste. Dans Windows, ouvrez Paramètres, Applications, Applications par défaut, cherchez Outlook et associez le type de lien MAILTO. En attendant, le bouton « Mise en page » copie le compte rendu à coller dans un message.",
       confirm: "J'ai compris", danger: false, noCancel: true, icon: 'mail'
     });
-  }, 1500);
+  }, PAS);
 }
 
 function mailSheet(m) {
