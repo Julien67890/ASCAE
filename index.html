@@ -542,7 +542,7 @@ const LS_PREFS = 'suivi-chantiers:prefs';
 let state = load();
 
 function load() {
-  const settings = { userName: '', theme: 'auto' };
+  const settings = { userName: '', theme: 'auto', names: {} };
   try {
     const raw = localStorage.getItem(LS_PREFS);
     if (raw) Object.assign(settings, JSON.parse(raw) || {});
@@ -562,7 +562,8 @@ function legacyProjects() {
   return [];
 }
 function normalize(d) {
-  d.settings = Object.assign({ userName: '', theme: 'auto' }, d.settings || {});
+  d.settings = Object.assign({ userName: '', theme: 'auto', names: {} }, d.settings || {});
+  d.settings.names = d.settings.names || {};
   d.projects.forEach(p => {
     p.users = p.users || []; p.steps = p.steps || []; p.contacts = p.contacts || [];
     p.requests = p.requests || []; p.reports = p.reports || []; p.feed = p.feed || [];
@@ -787,10 +788,17 @@ function authSetup() {
       FB.user = user; FB.email = lowerMail(user.email);
       box.hidden = true;
       document.body.classList.remove('noscroll');
-      if (!state.settings.userName) {
+      /* Le nom est propre à l'appareil, mais retenu par compte : un carnet local
+         associe chaque adresse au nom choisi, pour que deux personnes partageant
+         un poste retrouvent chacune le leur, sans hériter de celui de l'autre. */
+      state.settings.names = state.settings.names || {};
+      const connu = state.settings.names[FB.email];
+      if (connu) {
+        state.settings.userName = connu;
+      } else {
         const auto = user.displayName || defaultNameFromEmail(user.email);
-        if (auto) { state.settings.userName = auto; save(); }
-        else requireName();
+        if (auto) { state.settings.userName = auto; state.settings.names[FB.email] = auto; save(); }
+        else { state.settings.userName = ''; requireName(); }
       }
       startSync();
       route();
@@ -817,7 +825,9 @@ function requireName() {
   const submit = () => {
     const v = inp.value.trim();
     if (!v) { err.hidden = false; inp.classList.add('invalid'); inp.focus(); return; }
-    state.settings.userName = v; save();
+    state.settings.userName = v;
+    if (FB.email) { state.settings.names = state.settings.names || {}; state.settings.names[FB.email] = v; }
+    save();
     gate.hidden = true;
     document.body.classList.remove('noscroll');
     toast('Nom enregistré');
@@ -2334,7 +2344,11 @@ function settingsSheet() {
       nameField.addEventListener('input', e => {
         const v = e.target.value.trim();
         e.target.classList.remove('invalid');
-        if (v) { state.settings.userName = v; save(); }
+        if (v) {
+          state.settings.userName = v;
+          if (FB.email) { state.settings.names = state.settings.names || {}; state.settings.names[FB.email] = v; }
+          save();
+        }
       });
       nameField.addEventListener('blur', e => {
         if (!e.target.value.trim()) {
