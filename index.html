@@ -63,7 +63,7 @@ a{color:inherit;text-decoration:none}
 /* ---------- barre haute ---------- */
 .appbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;height:70px;margin:0 -16px;padding:0 16px;background:var(--bg)}
 .brand{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
-.logo{width:42px;height:42px;border-radius:10px;background:var(--hero);object-fit:contain;padding:3px;flex:none;display:block}
+.logo{width:50px;height:50px;object-fit:contain;flex:none;display:block}
 .brand h1,.titlebox h1{font-stretch:78%;font-weight:800;letter-spacing:-.01em;line-height:1.1}
 .brand h1{font-size:23px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .brand p{font-size:12.5px;color:var(--muted)}
@@ -391,8 +391,8 @@ td .avatars{margin-left:0}
 .auth[data-boot] .auth-sub{color:var(--muted)}
 #au-form[hidden]{display:none}
 .auth-box{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 24px;box-shadow:var(--shadow)}
-.auth-mark{width:52px;height:52px;border-radius:12px;background:var(--hero);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
-.auth-mark img{display:block;object-fit:contain;padding:3px}
+.auth-mark{width:64px;height:64px;margin:0 auto 16px}
+.auth-mark img{display:block;width:100%;height:100%;object-fit:contain}
 .auth h1{font-size:21px;font-weight:750;text-align:center;letter-spacing:-.01em}
 .auth-sub{text-align:center;color:var(--muted);font-size:13.5px;margin:6px 0 22px}
 .auth .field{margin-bottom:14px}
@@ -467,7 +467,7 @@ td .avatars{margin-left:0}
 <div id="app"></div>
 <div id="auth" class="auth" data-boot>
   <div class="auth-box">
-    <div class="auth-mark"><img src="logo.png" alt="" width="52" height="52" decoding="async"></div>
+    <div class="auth-mark"><img src="logo.png" alt="" width="64" height="64" decoding="async"></div>
     <h1>ASCAE C&amp;I</h1>
     <p class="auth-sub" id="au-sub">Connexion en cours…</p>
     <div id="au-form" hidden>
@@ -486,7 +486,7 @@ td .avatars{margin-left:0}
 <div id="syncbar" class="syncbar" hidden><span class="syncdot"></span><span id="syncmsg"></span></div>
 <div id="namegate" class="auth" hidden>
   <div class="auth-box">
-    <div class="auth-mark"><img src="logo.png" alt="" width="52" height="52" decoding="async"></div>
+    <div class="auth-mark"><img src="logo.png" alt="" width="64" height="64" decoding="async"></div>
     <h1>Votre nom</h1>
     <p class="auth-sub">Il identifie vos comptes rendus, demandes et modifications pour le reste de l'équipe.</p>
     <div class="field"><label for="ng-name">Nom ou initiales</label><input id="ng-name" placeholder="Ex. Julien Guionie" autocomplete="name" autofocus></div>
@@ -979,7 +979,7 @@ const I = {
   alert: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>'
 };
 const ic = (n, s = 20) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n] || ''}</svg>`;
-const logo = () => `<img class="logo" src="logo.png" alt="" width="40" height="40" decoding="async">`;
+const logo = () => `<img class="logo" src="logo.png" alt="" width="50" height="50" decoding="async">`;
 const emptyState = (i, t, x, a) => `<div class="empty"><div class="em-ic">${ic(i, 28)}</div><h3>${t}</h3><p>${x}</p>${a ? `<div class="row">${a}</div>` : ''}</div>`;
 
 /* =========================================================
