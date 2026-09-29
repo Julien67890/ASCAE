@@ -930,6 +930,14 @@ function myReqs(p) {
   return p.requests.filter(r => r.assigneeId === me.id && r.status !== 'terminee');
 }
 const myLate = p => myReqs(p).filter(r => r.dueDate && r.dueDate < today()).length;
+/* Une seule demande en attente sur l'ensemble des projets : le bandeau l'ouvre
+   directement, comme un lien reçu par e-mail. Plusieurs : il filtre, faute de
+   pouvoir deviner laquelle montrer. */
+function myOnlyReq() {
+  const trouvees = [];
+  state.projects.forEach(p => myReqs(p).forEach(r => trouvees.push({ p, r })));
+  return trouvees.length === 1 ? trouvees[0] : null;
+}
 function lastReport(p) { return [...p.reports].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]; }
 function matches(p, q) {
   if (!q) return true; const t = norm(q);
@@ -2272,6 +2280,7 @@ function renderGlobal() {
       <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
       <div class="titlebox"><h1>Vue globale</h1><span class="hint">Synthèse de ${plural(n, 'projet')}</span></div>
       <button class="icon-btn" data-act="export-csv" aria-label="Exporter en CSV" title="Exporter en CSV">${ic('download')}</button>
+      <button class="icon-btn" data-act="settings" aria-label="Paramètres" title="Paramètres">${ic('sliders')}</button>
     </header>
     <div class="kpis four">
       <div class="kpi"><b>${avg}%</b><span>Avancement moyen</span></div>
@@ -2377,7 +2386,11 @@ const ACTS = {
   'new-project': () => projectForm(),
   'open-project': el => { if (suppressClick) { suppressClick = false; return; } go('#/p/' + el.dataset.id); },
   'edit-project': el => { const p = findP(el); if (p) projectForm(p); },
-  'mine-toggle': () => { mineOnly = !mineOnly; rerender(); },
+  'mine-toggle': () => {
+    const seule = myOnlyReq();
+    if (seule) { go('#/p/' + seule.p.id + '/suivi'); setTimeout(() => viewRequest(seule.p, seule.r), 90); return; }
+    mineOnly = !mineOnly; rerender();
+  },
   'new-note': el => noteForm(getP(el.dataset.id)),
   'del-note': async el => {
     const p = getP(el.dataset.id);
