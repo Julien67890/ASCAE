@@ -461,6 +461,11 @@ td .avatars{margin-left:0}
 .ftop b{font-size:13.5px}
 .fmeta{color:var(--muted);font-size:12px}
 .fbody p{font-size:14px;line-height:1.5;word-break:break-word}
+.recip-list{display:grid;gap:6px}
+.recip-row{display:flex;align-items:baseline;gap:9px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface)}
+.recip-row input{flex:none;width:18px;height:18px;accent-color:var(--accent-ink)}
+.recip-row span{font-weight:650;font-size:13.5px}
+.recip-row small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:right}
 </style>
 </head>
 <body>
@@ -1620,9 +1625,13 @@ function reportForm(p, r, opts) {
           <button type="button" class="mini" id="cr-unlock" aria-label="Modifier l'avancement">${ic('edit', 17)}</button></div>
         <div class="cr-steps locked" id="cr-steps">${p.steps.map(s => `<div><div class="cr-step-head"><span>${esc(s.name)}</span><b data-out="${s.id}">${s.progress || 0}%</b></div><input type="range" min="0" max="100" step="5" data-step="${s.id}" value="${s.progress || 0}" aria-label="Avancement ${esc(s.name)}" disabled></div>`).join('')}</div>
         <p class="hint mt-xs" id="cr-lockhint">Touchez le crayon pour ajuster l'avancement.</p></div>` : ''}
-      <div class="notice ${recips.length ? '' : 'warn'}">${ic(recips.length ? 'mail' : 'alert', 16)}<span>${recips.length
-        ? `À la validation, le compte rendu est adressé à ${recips.map(u => `<b>${esc(u.name)}</b>`).join(', ')}.`
-        : `Aucun utilisateur du projet n'a d'adresse e-mail. <button type="button" class="linklike" data-act="edit-project" data-id="${p.id}">Compléter l'équipe</button>`}</span></div>
+      ${recips.length ? `<div class="field"><label>Destinataires</label>
+        <div class="recip-list">${recips.map(u => {
+          const checked = d.recipients ? d.recipients.includes(u.email) : true;
+          return `<label class="recip-row"><input type="checkbox" name="recip" value="${esc(u.email)}" ${checked ? 'checked' : ''}>
+            <span>${esc(u.name)}</span><small>${esc(u.email)}</small></label>`;
+        }).join('')}</div></div>`
+      : `<div class="notice warn">${ic('alert', 16)}<span>Aucun utilisateur du projet n'a d'adresse e-mail. <button type="button" class="linklike" data-act="edit-project" data-id="${p.id}">Compléter l'équipe</button></span></div>`}
     </form>`,
     foot: `<button class="btn btn-ghost" id="cr-draft">${wasSent ? 'Enregistrer' : 'Enregistrer le brouillon'}</button><button class="btn btn-primary" id="cr-send">${ic('send', 17)} ${wasSent ? 'Enregistrer et renvoyer' : 'Valider et envoyer'}</button>`,
     onMount(sh) {
@@ -1662,11 +1671,16 @@ function reportForm(p, r, opts) {
         const E = f.elements;
         if (!E.date.value) { E.date.classList.add('invalid'); toast("Indiquez la date d'intervention"); return null; }
         const author = (E.author ? E.author.value.trim() : '') || d.author || meName();
+        const recipients = $$('input[name="recip"]:checked', sh).map(c => c.value);
         const data = { date: E.date.value, title: E.title.value.trim(), author,
           requestId: E.requestId ? E.requestId.value : (d.requestId || ''),
           presents: E.presents.value.trim(), works: E.works.value.trim(),
           observations: E.observations.value.trim(), actions: E.actions.value.trim(),
-          comment: E.comment.value.trim() };
+          comment: E.comment.value.trim(), recipients };
+        if (send && recips.length && !$$('input[name="recip"]:checked', sh).length) {
+          toast('Sélectionnez au moins un destinataire');
+          return null;
+        }
         const avantCom = r ? (r.comment || '') : '';
         const avantEtapes = p.steps.map(s => ({ id: s.id, name: s.name, v: s.progress || 0 }));
         $$('[data-step]', sh).forEach(i => { const s = p.steps.find(x => x.id === i.dataset.step); if (s) s.progress = +i.value; });
@@ -1707,7 +1721,8 @@ function reportForm(p, r, opts) {
   });
 }
 function reportMail(p, r) {
-  const to = p.users.filter(u => u.email).map(u => u.email);
+  const all = p.users.filter(u => u.email).map(u => u.email);
+  const to = r.recipients ? all.filter(e => r.recipients.includes(e)) : all;
   const pct = r.progressAt != null ? r.progressAt : progress(p);
   const q = linkedRequest(p, r);
   const snap = r.stepsSnapshot || [];
