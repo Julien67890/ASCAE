@@ -484,6 +484,16 @@ td .avatars{margin-left:0}
   </div>
 </div>
 <div id="syncbar" class="syncbar" hidden><span class="syncdot"></span><span id="syncmsg"></span></div>
+<div id="namegate" class="auth" hidden>
+  <div class="auth-box">
+    <div class="auth-mark"><img src="logo.png" alt="" width="52" height="52" decoding="async"></div>
+    <h1>Votre nom</h1>
+    <p class="auth-sub">Il identifie vos comptes rendus, demandes et modifications pour le reste de l'équipe.</p>
+    <div class="field"><label for="ng-name">Nom ou initiales</label><input id="ng-name" placeholder="Ex. Julien Guionie" autocomplete="name" autofocus></div>
+    <p class="auth-err" id="ng-err" hidden>Ce champ est obligatoire pour continuer.</p>
+    <button class="btn btn-primary btn-block" id="ng-go">Continuer</button>
+  </div>
+</div>
 <div id="sheet-root"></div>
 <div id="dialog-root"></div>
 <div id="toast-root" aria-live="polite"></div>
@@ -602,6 +612,17 @@ const canon = o => JSON.stringify(o, (k, v) =>
     ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]]))
     : v);
 
+/* Chez Apex, l'adresse suit toujours premiere-lettre.nom@domaine : on en tire
+   une identification compacte (« J.Gu ») à défaut du prénom complet. */
+function defaultNameFromEmail(email) {
+  const local = String(email || '').split('@')[0];
+  const parts = local.split('.').filter(Boolean);
+  if (parts.length < 2) return '';
+  const p = parts[0][0].toUpperCase();
+  const n = parts[1].slice(0, 2).toUpperCase();
+  if (!n) return '';
+  return p + '.' + n;
+}
 const lowerMail = m => String(m || '').trim().toLowerCase();
 
 /* Qui a le droit de lire ce projet : le créateur et toute l'équipe. */
@@ -766,7 +787,11 @@ function authSetup() {
       FB.user = user; FB.email = lowerMail(user.email);
       box.hidden = true;
       document.body.classList.remove('noscroll');
-      if (!state.settings.userName && user.displayName) { state.settings.userName = user.displayName; save(); }
+      if (!state.settings.userName) {
+        const auto = user.displayName || defaultNameFromEmail(user.email);
+        if (auto) { state.settings.userName = auto; save(); }
+        else requireName();
+      }
       startSync();
       route();
     } else {
@@ -781,6 +806,25 @@ function authSetup() {
       mail.focus();
     }
   });
+}
+
+/* Un nom est indispensable pour attribuer les modifications : on bloque tant
+   qu'aucun n'est renseigné, avec un écran dédié plutôt qu'une simple relance. */
+function requireName() {
+  const gate = $('#namegate'), inp = $('#ng-name'), err = $('#ng-err'), go = $('#ng-go');
+  gate.hidden = false;
+  document.body.classList.add('noscroll');
+  const submit = () => {
+    const v = inp.value.trim();
+    if (!v) { err.hidden = false; inp.classList.add('invalid'); inp.focus(); return; }
+    state.settings.userName = v; save();
+    gate.hidden = true;
+    document.body.classList.remove('noscroll');
+    toast('Nom enregistré');
+  };
+  go.onclick = submit;
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  setTimeout(() => inp.focus(), 30);
 }
 
 async function doSignOut() {
@@ -2280,13 +2324,25 @@ function settingsSheet() {
     body: `<div class="flabel">Compte</div>
       <div class="acct">${ic('users')}<span><b>${esc(FB.email)}</b><small>Chantiers synchronisés sur tous vos appareils</small></span></div>
       <button class="btn btn-ghost btn-block mb" id="s-out">Se déconnecter</button>
-      <div class="field"><label for="s-name">Votre nom</label><input id="s-name" value="${esc(state.settings.userName)}" placeholder="Utilisé comme rédacteur par défaut" autocomplete="name"></div>
+      <div class="field"><label for="s-name">Votre nom</label><input id="s-name" value="${esc(state.settings.userName)}" placeholder="Utilisé comme rédacteur par défaut" autocomplete="name" required></div>
       <div class="field"><div class="flabel">Apparence</div><div class="seg" id="s-theme">${[['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button type="button" data-t="${k}" class="${k === th ? 'active' : ''}">${l}</button>`).join('')}</div></div>
       <p class="hint mt">Les chantiers sont enregistrés sur votre compte et partagés avec les adresses e-mail de l'équipe. L'application reste utilisable hors connexion : les modifications partent au retour du réseau.</p>`,
     foot: `<button class="btn btn-primary btn-block" data-sheet-close>Fermer</button>`,
     onMount(sh) {
       $('#s-out', sh).onclick = () => doSignOut();
-      $('#s-name', sh).addEventListener('input', e => { state.settings.userName = e.target.value.trim(); save(); });
+      const nameField = $('#s-name', sh);
+      nameField.addEventListener('input', e => {
+        const v = e.target.value.trim();
+        e.target.classList.remove('invalid');
+        if (v) { state.settings.userName = v; save(); }
+      });
+      nameField.addEventListener('blur', e => {
+        if (!e.target.value.trim()) {
+          e.target.value = state.settings.userName;
+          e.target.classList.add('invalid');
+          toast('Le nom est obligatoire : il identifie vos modifications pour le reste de l\'équipe');
+        }
+      });
       $('#s-theme', sh).onclick = e => {
         const b = e.target.closest('[data-t]'); if (!b) return;
         state.settings.theme = b.dataset.t; save(); applyTheme();
