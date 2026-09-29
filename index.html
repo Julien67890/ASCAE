@@ -444,11 +444,23 @@ td .avatars{margin-left:0}
 .segbar button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .mail-body{font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;max-height:46vh;overflow:auto}
 .field textarea.grow{min-height:48px;resize:none;overflow:hidden;line-height:1.5}
-.tphoto{width:32px;height:32px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);margin:0 auto}
-.tphoto:hover{background:var(--info-bg);color:var(--info);border-color:currentColor}
+.tphoto{width:32px;height:32px;color:#2E9E6A;background:rgba(46,158,106,.13);border:1px solid rgba(46,158,106,.28);margin:0 auto}
+.tphoto:hover{background:#2E9E6A;color:#FFFFFF;border-color:#2E9E6A}
 .tmine{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--info-bg);color:var(--info);font-size:11.5px;font-weight:700;vertical-align:middle;white-space:nowrap}
 .tmine.late{background:var(--warn-bg);color:var(--warning)}
 .mine-bar{margin-top:2px}
+.feed{display:grid;gap:8px}
+.fitem{display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 13px}
+.fic{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--surface-2);color:var(--muted)}
+.fic.note{background:var(--info-bg);color:var(--info)}
+.fic.step{background:rgba(255,194,26,.2);color:#8A6A00}
+.fic.report{background:var(--success-bg);color:var(--success)}
+.fic.request{background:var(--warn-bg);color:var(--warning)}
+.fbody{flex:1;min-width:0}
+.ftop{display:flex;flex-wrap:wrap;gap:3px 9px;align-items:baseline;margin-bottom:3px}
+.ftop b{font-size:13.5px}
+.fmeta{color:var(--muted);font-size:12px}
+.fbody p{font-size:14px;line-height:1.5;word-break:break-word}
 </style>
 </head>
 <body>
@@ -543,7 +555,7 @@ function normalize(d) {
   d.settings = Object.assign({ userName: '', theme: 'auto' }, d.settings || {});
   d.projects.forEach(p => {
     p.users = p.users || []; p.steps = p.steps || []; p.contacts = p.contacts || [];
-    p.requests = p.requests || []; p.reports = p.reports || [];
+    p.requests = p.requests || []; p.reports = p.reports || []; p.feed = p.feed || [];
     p.links = p.links || {};
     ['plans', 'photos', 'planning'].forEach(k => { p.links[k] = p.links[k] || []; });
   });
@@ -833,8 +845,33 @@ function currentStepLabel(p) {
   return s ? s.name + ' en cours' : 'Toutes les étapes terminées';
 }
 const openReq = p => p.requests.filter(r => r.status !== 'terminee').length;
+/* « il y a 2 h », « hier », puis la date complète au-delà d'une semaine. */
+function fmtWhen(t) {
+  const d = Date.now() - t, mn = Math.round(d / 60000);
+  if (mn < 1) return "à l'instant";
+  if (mn < 60) return 'il y a ' + mn + ' min';
+  const h = Math.round(mn / 60);
+  if (h < 24) return 'il y a ' + h + ' h';
+  const j = Math.round(h / 24);
+  if (j === 1) return 'hier';
+  if (j < 7) return 'il y a ' + j + ' jours';
+  return fmtDate(t);
+}
 const lateReq = p => p.requests.filter(r => r.status !== 'terminee' && r.dueDate && r.dueDate < today()).length;
 /* L'utilisateur connecté, tel qu'inscrit dans l'équipe du projet. */
+/* Journal du chantier : chaque geste laisse une trace, consultable par l'équipe. */
+const FEED_KINDS = {
+  note:    { l: 'Commentaire', ic: 'message', col: 'var(--info)' },
+  step:    { l: 'Avancement', ic: 'layers', col: 'var(--accent-ink)' },
+  report:  { l: 'Compte rendu', ic: 'doc', col: 'var(--success)' },
+  request: { l: 'Demande', ic: 'wrench', col: 'var(--warning)' }
+};
+function logFeed(p, kind, text) {
+  if (!text) return;
+  p.feed = p.feed || [];
+  p.feed.push({ id: uid(), at: Date.now(), who: meName(), kind, text });
+  if (p.feed.length > 200) p.feed = p.feed.slice(-200);
+}
 const meInProject = p => FB.email ? (p.users || []).find(u => lowerMail(u.email) === FB.email) : null;
 /* Ses demandes non terminées sur ce projet. */
 function myReqs(p) {
@@ -875,6 +912,7 @@ const I = {
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
   contact: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17a4 4 0 0 1 8 0"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
+  message: '<path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z"/>',
   'user-check': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 12 0"/><path d="m16 12 2 2 4-4"/>',
   send: '<path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7z"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
@@ -963,13 +1001,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('#dialog-root').classList.contains('open') && $('#sheet-root').classList.contains('open')) closeSheet();
 });
 
-function confirmDialog({ title, message, confirm = 'Confirmer', danger = true }) {
+function confirmDialog({ title, message, confirm = 'Confirmer', danger = true, noCancel = false, icon = null }) {
   return new Promise(res => {
     const root = $('#dialog-root');
     root.innerHTML = `<div class="scrim"></div><div class="dialog" role="alertdialog" aria-modal="true">
-      <div class="dialog-ic ${danger ? 'danger' : ''}">${ic(danger ? 'trash' : 'check', 24)}</div>
+      <div class="dialog-ic ${danger ? 'danger' : ''}">${ic(icon || (danger ? 'trash' : 'check'), 24)}</div>
       <h3>${esc(title)}</h3><p>${message}</p>
-      <div class="dialog-actions"><button class="btn btn-ghost" data-r="0">Annuler</button><button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-r="1">${esc(confirm)}</button></div></div>`;
+      <div class="dialog-actions">${noCancel ? '' : '<button class="btn btn-ghost" data-r="0">Annuler</button>'}<button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-r="1">${esc(confirm)}</button></div></div>`;
     root.classList.add('open');
     const opened = Date.now();
     const done = v => { root.classList.remove('open'); root.innerHTML = ''; document.removeEventListener('keydown', onKey, true); res(v); };
@@ -980,7 +1018,7 @@ function confirmDialog({ title, message, confirm = 'Confirmer', danger = true })
       if (b) return done(b.dataset.r === '1');
       if (e.target.classList.contains('scrim') && Date.now() - opened > 450) done(false);
     };
-    setTimeout(() => { const b = $('[data-r="0"]', root); b && b.focus(); }, 30);
+    setTimeout(() => { const b = $('[data-r="0"]', root) || $('[data-r="1"]', root); b && b.focus(); }, 30);
   });
 }
 
@@ -1236,7 +1274,7 @@ function projectForm(p) {
 /* =========================================================
    Page projet
    ========================================================= */
-const TABS = [['suivi', 'Suivi', 'wrench'], ['etapes', 'Étapes', 'layers'], ['liens', 'Documents', 'link'], ['contacts', 'Contacts', 'contact'], ['equipe', 'Équipe', 'users']];
+const TABS = [['suivi', 'Suivi', 'wrench'], ['journal', 'Commentaires', 'message'], ['etapes', 'Étapes', 'layers'], ['liens', 'Documents', 'link'], ['contacts', 'Contacts', 'contact'], ['equipe', 'Équipe', 'users']];
 let reqFilter = 'actives', crAll = false;
 
 function renderProject(p, tab) {
@@ -1288,8 +1326,27 @@ function quickLink(p, k, c) {
   if (href) return `<a class="ql" href="${esc(href)}" target="_blank" rel="noopener">${inner}</a>`;
   return `<a class="ql" href="#/p/${p.id}/liens" ${n ? '' : `data-act="add-link" data-id="${p.id}" data-cat="${k}"`}>${inner}</a>`;
 }
+function tabJournal(p) {
+  const items = [...(p.feed || [])].sort((a, b) => b.at - a.at);
+  return `
+      <div class="zone-head"><h2>Commentaires et suivi</h2>
+        <button class="btn btn-ghost btn-sm" data-act="new-note" data-id="${p.id}">${ic('plus', 15)} Commentaire</button></div>
+      ${items.length ? `<div class="feed">${items.map(f => {
+        const k = FEED_KINDS[f.kind] || FEED_KINDS.note;
+        return `<div class="fitem" data-fid="${f.id}">
+          <span class="fic ${f.kind}">${ic(k.ic, 15)}</span>
+          <div class="fbody">
+            <div class="ftop"><b>${esc(k.l)}</b><span class="fmeta">${esc(f.who || '')}${f.who ? ' · ' : ''}${fmtWhen(f.at)}</span></div>
+            <p class="prewrap">${esc(f.text)}</p>
+          </div>
+          ${f.kind === 'note' ? `<button class="mini" data-act="del-note" data-id="${p.id}" data-fid="${f.id}" aria-label="Supprimer ce commentaire">${ic('trash', 16)}</button>` : ''}
+        </div>`;
+      }).join('')}</div>`
+      : emptyState('message', 'Aucune activité', "Les avancements, comptes rendus et demandes s'inscriront ici automatiquement.", `<button class="btn btn-ghost" data-act="new-note" data-id="${p.id}">${ic('plus', 17)} Écrire un commentaire</button>`)}`;
+}
+
 function renderTab(p, tab) {
-  return ({ suivi: tabSuivi, etapes: tabEtapes, liens: tabLiens, contacts: tabContacts, equipe: tabEquipe })[tab](p);
+  return ({ suivi: tabSuivi, journal: tabJournal, etapes: tabEtapes, liens: tabLiens, contacts: tabContacts, equipe: tabEquipe })[tab](p);
 }
 function bindTab(p, tab) {
   const panel = $('#panel');
@@ -1359,12 +1416,17 @@ function requestForm(p, r) {
         const data = { title, description: E.description.value.trim(), assigneeId: E.assigneeId ? E.assigneeId.value : '', priority: E.priority.value, dueDate: E.dueDate.value };
         if (isNew) {
           const nr = { id: uid(), ...data, status: 'ouverte', createdAt: Date.now(), createdBy: state.settings.userName || '' };
-          p.requests.push(nr); touch(p);
+          p.requests.push(nr);
+          logFeed(p, 'request', 'Demande créée : ' + nr.title
+            + (nr.assigneeId && userById(p, nr.assigneeId) ? ' (assignée à ' + userById(p, nr.assigneeId).name + ')' : ''));
+          touch(p);
           const notify = E.notify && E.notify.checked;
           closeSheet(); toast('Demande créée'); rerender();
           if (notify) mailSheet(requestMail(p, nr));
         } else {
-          Object.assign(r, data); r.updatedAt = Date.now(); touch(p); closeSheet(); toast('Demande enregistrée'); rerender();
+          Object.assign(r, data); r.updatedAt = Date.now();
+          logFeed(p, 'request', 'Demande modifiée : ' + r.title);
+          touch(p); closeSheet(); toast('Demande enregistrée'); rerender();
         }
       };
       $('#rf-save', sh).onclick = submit;
@@ -1403,6 +1465,7 @@ function viewRequest(p, r) {
       $('#seg', sh).onclick = e => {
         const b = e.target.closest('[data-s]'); if (!b || b.dataset.s === r.status) return;
         r.status = b.dataset.s; if (r.status === 'terminee') r.doneAt = Date.now();
+        logFeed(p, 'request', r.title + ' : ' + REQ_STATUS[r.status].l.toLowerCase());
         touch(p); $$('#seg button', sh).forEach(x => x.classList.toggle('active', x === b));
         rerender(); toast('Statut : ' + REQ_STATUS[r.status].l);
       };
@@ -1546,7 +1609,10 @@ function reportForm(p, r, opts) {
           presents: E.presents.value.trim(), works: E.works.value.trim(),
           observations: E.observations.value.trim(), actions: E.actions.value.trim(),
           comment: E.comment.value.trim() };
+        const avantCom = r ? (r.comment || '') : '';
+        const avantEtapes = p.steps.map(s => ({ id: s.id, name: s.name, v: s.progress || 0 }));
         $$('[data-step]', sh).forEach(i => { const s = p.steps.find(x => x.id === i.dataset.step); if (s) s.progress = +i.value; });
+        const bouges = avantEtapes.filter(a => { const s = p.steps.find(x => x.id === a.id); return s && (s.progress || 0) !== a.v; });
         let rep = r;
         if (isNew) { rep = { id: uid(), createdAt: Date.now(), ...data }; p.reports.push(rep); } else Object.assign(rep, data);
         rep.status = send || wasSent ? 'valide' : 'brouillon';
@@ -1560,6 +1626,20 @@ function reportForm(p, r, opts) {
           if (q && q.status !== 'terminee') { q.status = 'terminee'; q.doneAt = Date.now(); rep.closedRequest = true; }
         }
         if (state.settings.userName === '' && data.author && data.author !== FB.email) state.settings.userName = data.author;
+
+        /* Trace au journal : le compte rendu, sa clôture, et le commentaire qu'il porte. */
+        if (send) {
+          logFeed(p, 'report', 'Compte rendu diffusé : ' + (rep.title || fmtDate(rep.date))
+            + (rep.closedRequest ? ' — demande close' : ''));
+        } else if (isNew) {
+          logFeed(p, 'report', 'Brouillon de compte rendu : ' + (rep.title || fmtDate(rep.date)));
+        }
+        bouges.forEach(a => {
+          const s = p.steps.find(x => x.id === a.id);
+          logFeed(p, 'step', a.name + ' : ' + a.v + ' % → ' + (s.progress || 0) + ' %');
+        });
+        if (data.comment && data.comment !== avantCom) logFeed(p, 'note', data.comment);
+
         touch(p); return rep;
       };
       $('#cr-draft', sh).onclick = () => { const rep = persist(false); if (rep) { closeSheet(); toast(wasSent ? 'Compte rendu enregistré' : 'Brouillon enregistré'); rerender(); } };
@@ -1618,12 +1698,8 @@ function reportMail(p, r) {
 
   L.push('', RULE, '');
   const ph = (p.links.photos || [])[0];
-  if (ph && safeUrl(ph.url)) {
-    L.push('Photos du chantier :');
-    L.push(safeUrl(ph.url), '');
-  }
-  L.push('Consulter ce compte rendu dans ASCAE C&I :');
-  L.push(reportUrl(p, r));
+  if (ph && safeUrl(ph.url)) L.push('Photos du chantier : ' + safeUrl(ph.url));
+  L.push('Compte rendu en ligne : ' + reportUrl(p, r));
   L.push('', 'Cordialement,');
   if (r.author || state.settings.userName) L.push(r.author || state.settings.userName);
   L.push('', 'ASCAE C&I \u2014 ' + p.name);
@@ -1786,6 +1862,27 @@ function viewReport(p, r) {
 }
 
 /* ---------- Envoi par e-mail ---------- */
+/* Aucun navigateur ne signale l'échec d'un lien mailto. On le déduit :
+   si la page garde le focus après le clic, aucune application ne s'est ouverte. */
+function watchMailto() {
+  let parti = false;
+  const marque = () => { parti = true; };
+  addEventListener('blur', marque, { once: true });
+  addEventListener('pagehide', marque, { once: true });
+  document.addEventListener('visibilitychange', marque, { once: true });
+  setTimeout(() => {
+    removeEventListener('blur', marque);
+    removeEventListener('pagehide', marque);
+    document.removeEventListener('visibilitychange', marque);
+    if (parti || document.hidden || !document.hasFocus()) return;
+    confirmDialog({
+      title: "Votre messagerie ne s'est pas ouverte",
+      message: "Aucune application n'est associée aux liens e-mail sur ce poste. Dans Windows, ouvrez Paramètres, Applications, Applications par défaut, cherchez Outlook et associez le type de lien MAILTO. En attendant, le bouton « Mise en page » copie le compte rendu à coller dans un message.",
+      confirm: "J'ai compris", danger: false, noCancel: true, icon: 'mail'
+    });
+  }, 1500);
+}
+
 function mailSheet(m) {
   const href = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
   const hrefPlain = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
@@ -1804,7 +1901,7 @@ function mailSheet(m) {
       ${long ? `<div class="notice warn">${ic('alert', 16)}<span><b>Message long :</b> certaines messageries tronquent le texte pré-rempli. Vérifiez qu'il est complet avant d'envoyer, ou utilisez « Mise en page » puis collez dans votre e-mail.</span></div>`
         : (m.html ? `<div class="notice">${ic('send', 16)}<span><b>Envoyer</b> ouvre votre messagerie avec le message ci-dessus, barres de couleur comprises. <b>Mise en page</b> copie la version encadrée à coller dans le message.</span></div>` : '')}`,
     foot: m.html
-      ? `<button class="btn btn-ghost" id="m-both">${ic('copy', 17)} Mise en page</button><a class="btn btn-primary" id="m-open" href="${esc(hrefPlain)}" rel="noopener">${ic('send', 17)} Envoyer</a>`
+      ? `<button class="btn btn-ghost" id="m-both">${ic('copy', 17)} Mise en page</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Envoyer</a>`
       : `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Envoyer</a>`,
     onMount(sh) {
       $$('.segbar [data-view]', sh).forEach(b => b.onclick = () => {
@@ -1816,7 +1913,10 @@ function mailSheet(m) {
       const a = $('#m-open', sh);
       if (a) {
         if (window.self !== window.top) a.target = '_blank';
-        a.addEventListener('click', () => setTimeout(() => closeSheet(true), 400));
+        a.addEventListener('click', () => {
+          watchMailto();
+          setTimeout(() => closeSheet(true), 400);
+        });
       }
 
       async function copyRich() {
@@ -1876,6 +1976,26 @@ function tabEtapes(p) {
     </div>`;
   }).join('')}</div>`;
 }
+function noteForm(p) {
+  openSheet({
+    title: 'Nouveau commentaire',
+    body: `<form id="nf" novalidate>
+      <div class="field"><label for="nf-t">Commentaire</label>
+        <textarea id="nf-t" name="text" rows="5" placeholder="Ce que vous voulez signaler à l'équipe" autofocus></textarea></div>
+    </form>`,
+    foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="nf-save">Publier</button>`,
+    onMount(sh) {
+      const f = $('#nf', sh);
+      $('#nf-save', sh).onclick = () => {
+        const t = f.elements.text.value.trim();
+        if (!t) { f.elements.text.classList.add('invalid'); f.elements.text.focus(); return; }
+        logFeed(p, 'note', t);
+        touch(p); closeSheet(true); rerender(); toast('Commentaire publié');
+      };
+    }
+  });
+}
+
 function stepForm(p, s) {
   const isNew = !s, d = s || { name: '', progress: 0 };
   const curIdx = isNew ? p.steps.length : p.steps.indexOf(s);
@@ -1907,10 +2027,19 @@ function stepForm(p, s) {
         const E = f.elements, name = E.sname.value.trim();
         if (!name) { E.sname.classList.add('invalid'); E.sname.focus(); toast("Indiquez le nom de l'étape"); return; }
         const pos = E.spos ? Math.max(0, Math.min(slots - 1, +E.spos.value)) : curIdx;
-        if (isNew) p.steps.splice(pos, 0, { id: uid(), name, progress: +E.sprog.value });
-        else {
-          s.name = name; s.progress = +E.sprog.value;
+        const np2 = +E.sprog.value;
+        if (isNew) {
+          p.steps.splice(pos, 0, { id: uid(), name, progress: np2 });
+          logFeed(p, 'step', 'Étape ajoutée : ' + name + (np2 ? ' (' + np2 + ' %)' : ''));
+        } else {
+          const av = s.progress || 0, avn = s.name;
+          s.name = name; s.progress = np2;
           if (pos !== curIdx) { p.steps.splice(curIdx, 1); p.steps.splice(pos, 0, s); }
+          const bits = [];
+          if (avn !== name) bits.push('renommée « ' + avn + ' » en « ' + name + ' »');
+          if (av !== np2) bits.push('avancement ' + av + ' % → ' + np2 + ' %');
+          if (pos !== curIdx) bits.push('déplacée en position ' + (pos + 1));
+          if (bits.length) logFeed(p, 'step', name + ' : ' + bits.join(', '));
         }
         touch(p); closeSheet(); toast(isNew ? 'Étape ajoutée' : 'Étape enregistrée'); rerender();
       };
@@ -2171,6 +2300,13 @@ const ACTS = {
   'open-project': el => { if (suppressClick) { suppressClick = false; return; } go('#/p/' + el.dataset.id); },
   'edit-project': el => { const p = findP(el); if (p) projectForm(p); },
   'mine-toggle': () => { mineOnly = !mineOnly; rerender(); },
+  'new-note': el => noteForm(getP(el.dataset.id)),
+  'del-note': async el => {
+    const p = getP(el.dataset.id);
+    if (!await confirmDialog({ title: 'Supprimer ce commentaire ?', message: 'Il disparaîtra pour toute l\'équipe.', confirm: 'Supprimer' })) return;
+    p.feed = p.feed.filter(f => f.id !== el.dataset.fid);
+    touch(p); rerender(); toast('Commentaire supprimé');
+  },
   'req-filter': el => { reqFilter = el.dataset.f; rerender(); },
   'cr-all': () => { crAll = true; rerender(); },
   'new-request': el => requestForm(findP(el)),
