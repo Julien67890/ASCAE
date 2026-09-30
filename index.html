@@ -138,7 +138,7 @@ a{color:inherit;text-decoration:none}
 .chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:6px;background:var(--surface-2);font-weight:600;font-size:12.5px;color:var(--muted);max-width:100%}
 .chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip.warn{background:var(--warn-bg);color:var(--warning)}
-.avatars{display:inline-flex;vertical-align:middle;margin-left:auto;flex:none}
+.avatars{display:inline-flex;align-items:center;margin-left:auto;flex:none}
 .av{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
 .avatars .av{border:2px solid var(--surface)}
 .avatars .av+.av{margin-left:-8px}
@@ -214,7 +214,7 @@ a{color:inherit;text-decoration:none}
 .item-meta{display:flex;gap:6px 10px;flex-wrap:wrap;margin-top:8px;align-items:center}
 .meta{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);font-weight:600}
 .meta.overdue{color:var(--danger)}
-.pill{display:inline-flex;align-items:center;vertical-align:middle;gap:6px;height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
 .pill::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
 .st-ouverte{background:var(--info-bg);color:var(--info)}
 .st-encours{background:var(--warn-bg);color:var(--warning)}
@@ -368,7 +368,8 @@ th:hover{color:var(--text)}
 th .sort{opacity:.35;font-size:10px;margin-left:3px}
 th.sorted{color:var(--text)}
 th.sorted .sort{opacity:1}
-td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;line-height:28px}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.cellbox{display:inline-flex;align-items:center;height:32px}
 tbody tr:last-child td{border-bottom:0}
 tbody tr{cursor:pointer}
 tbody tr:hover td{background:var(--surface-2)}
@@ -444,7 +445,7 @@ td .avatars{margin-left:0}
 .segbar button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .mail-body{font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:12px 14px;max-height:46vh;overflow:auto}
 .field textarea.grow{min-height:48px;resize:none;overflow:hidden;line-height:1.5}
-.tphoto{width:32px;height:32px;color:#2E9E6A;background:rgba(46,158,106,.13);border:1px solid rgba(46,158,106,.28);margin:0 auto;vertical-align:middle}
+.tphoto{width:32px;height:32px;color:#2E9E6A;background:rgba(46,158,106,.13);border:1px solid rgba(46,158,106,.28);margin:0 auto;flex:none}
 .tphoto:hover{background:#2E9E6A;color:#FFFFFF;border-color:#2E9E6A}
 .tmine{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--info-bg);color:var(--info);font-size:11.5px;font-weight:700;vertical-align:middle;white-space:nowrap}
 .tmine.late{background:var(--warn-bg);color:var(--warning)}
@@ -2332,11 +2333,11 @@ function renderGTable() {
     <td class="muted">${esc(r.address || '—')}</td>
     <td><div class="tprog">${cellsHTML(r.progress)}<b>${r.progress}%</b></div></td>
     <td>${esc(r.step)}</td>
-    <td class="num">${r.open ? `<span class="pill st-ouverte">${r.open}</span>` : '<span class="muted">0</span>'}</td>
-    <td class="num">${r.late ? `<span class="pill pr-haute">${r.late}</span>` : '<span class="muted">0</span>'}</td>
-    <td class="num">${r.reports}</td>
-    <td class="num">${r.photos ? `<a class="round tphoto" href="${esc(r.photos)}" target="_blank" rel="noopener" data-stop aria-label="Photos de ${esc(r.name)}" title="Ouvrir le dossier photos">${ic('image', 17)}</a>` : '<span class="muted">—</span>'}</td>
-    <td><span class="avatars">${r.p.users.slice(0, 5).map(u => avatar(u.name)).join('')}</span></td>
+    <td class="num"><span class="cellbox">${r.open ? `<span class="pill st-ouverte">${r.open}</span>` : '<span class="muted">0</span>'}</span></td>
+    <td class="num"><span class="cellbox">${r.late ? `<span class="pill pr-haute">${r.late}</span>` : '<span class="muted">0</span>'}</span></td>
+    <td class="num"><span class="cellbox"><span class="muted">${r.reports}</span></span></td>
+    <td class="num"><span class="cellbox">${r.photos ? `<a class="round tphoto" href="${esc(r.photos)}" target="_blank" rel="noopener" data-stop aria-label="Photos de ${esc(r.name)}" title="Ouvrir le dossier photos">${ic('image', 17)}</a>` : '<span class="muted">—</span>'}</span></td>
+    <td><span class="cellbox"><span class="avatars">${r.p.users.slice(0, 5).map(u => avatar(u.name)).join('')}</span></span></td>
   </tr>`).join('')}</tbody></table>${rows.length ? '' : '<div class="empty-line" style="margin:12px">Aucun projet ne correspond au filtre.</div>'}`;
 }
 function tableMatrix() {
