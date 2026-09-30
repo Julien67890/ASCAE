@@ -73,6 +73,7 @@ a{color:inherit;text-decoration:none}
 .titlebox a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .titlebox a:hover{color:var(--text)}
 .icon-btn{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border);flex:none;transition:border-color .15s}
+.icon-btn.accent{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .icon-btn:hover{border-color:var(--muted)}
 
 /* ---------- boutons ---------- */
@@ -1161,9 +1162,10 @@ function renderHome() {
   const ps = state.projects, tot = ps.length;
   const open = ps.reduce((a, p) => a + openReq(p), 0);
   const avg = tot ? Math.round(ps.reduce((a, p) => a + progress(p), 0) / tot) : 0;
-  $('#app').innerHTML = `<div class="wrap has-fab">
+  $('#app').innerHTML = `<div class="wrap">
     <header class="appbar">
       <div class="brand">${logo()}<h1>ASCAE C&amp;I</h1></div>
+      <button class="icon-btn accent" data-act="new-project" aria-label="Nouveau projet" title="Nouveau projet">${ic('plus')}</button>
       <button class="btn btn-ghost btn-sm hide-sm" data-act="global">${ic('table', 17)} Vue globale</button>
       <button class="icon-btn show-sm" data-act="global" aria-label="Vue globale">${ic('table')}</button>
       <button class="icon-btn" data-act="settings" aria-label="Paramètres">${ic('sliders')}</button>
@@ -1181,8 +1183,7 @@ function renderHome() {
     })()}
     <div class="section-head"><h2>Projets</h2>${tot ? '<span class="hint">Appui long sur un projet pour le supprimer</span>' : ''}</div>
     <div id="plist-wrap"></div>
-  </div>
-  <button class="fab" data-act="new-project" aria-label="Nouveau projet">${ic('plus', 28)}</button>`;
+  </div>`;
   renderProjectList();
   const q = $('#q');
   q.addEventListener('input', () => { homeQuery = q.value; renderProjectList(); });
@@ -2308,6 +2309,7 @@ function renderGlobal() {
     <header class="appbar">
       <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
       <div class="titlebox"><h1>Vue globale</h1><span class="hint">Synthèse de ${plural(n, 'projet')}</span></div>
+      <button class="icon-btn accent" data-act="new-project" aria-label="Nouveau projet" title="Nouveau projet">${ic('plus')}</button>
       <button class="icon-btn" data-act="export-csv" aria-label="Exporter en CSV" title="Exporter en CSV">${ic('download')}</button>
       <button class="icon-btn" data-act="settings" aria-label="Paramètres" title="Paramètres">${ic('sliders')}</button>
     </header>
