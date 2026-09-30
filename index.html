@@ -2368,6 +2368,7 @@ function passwordSheet() {
       <div class="field"><label for="pw-new">Nouveau mot de passe</label><input id="pw-new" type="password" autocomplete="new-password" placeholder="Au moins 6 caractères"></div>
       <div class="field"><label for="pw-conf">Confirmer le nouveau mot de passe</label><input id="pw-conf" type="password" autocomplete="new-password"></div>
       <p class="auth-err" id="pw-err" hidden></p>
+      <button type="button" class="auth-link" id="pw-forgot">Mot de passe actuel oublié ? Recevoir un lien par e-mail</button>
     </form>`,
     foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="pw-save">Changer</button>`,
     onMount(sh) {
@@ -2390,6 +2391,15 @@ function passwordSheet() {
           fail(PWD_MSG[e.code] || 'Modification impossible' + (e.code ? ' (' + e.code + ')' : ''));
         } finally {
           go.disabled = false; go.textContent = 'Changer';
+        }
+      };
+      $('#pw-forgot', sh).onclick = async () => {
+        try {
+          await sendPasswordResetEmail(fbAuth, FB.email);
+          closeSheet(true);
+          toast('Lien de réinitialisation envoyé à ' + FB.email);
+        } catch (e) {
+          fail(PWD_MSG[e.code] || "Envoi impossible" + (e.code ? ' (' + e.code + ')' : ''));
         }
       };
       [cur, nw, conf].forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); }));
