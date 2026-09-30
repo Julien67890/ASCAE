@@ -1117,6 +1117,9 @@ function bindRanges(root) {
    Routage
    ========================================================= */
 let lastView = '';
+/* La fiche projet retient d'où l'on vient, pour que son bouton retour
+   ramène à la vue globale si c'est de là qu'on est parti, et à l'accueil sinon. */
+let entryList = '#/';
 /* Au tout premier affichage, un grand écran s'ouvre sur la vue globale ;
    un téléphone reste sur la liste des chantiers. Ensuite, la navigation est libre. */
 let startupDone = false;
@@ -1128,7 +1131,7 @@ function route() {
   }
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   let view;
-  if (parts[0] === 'global') { view = 'global'; renderGlobal(); }
+  if (parts[0] === 'global') { view = 'global'; entryList = '#/global'; renderGlobal(); }
   else if (parts[0] === 'p' && parts[1] && getP(parts[1])) {
     const pr = getP(parts[1]);
     view = 'p/' + parts[1];
@@ -1142,7 +1145,7 @@ function route() {
       else if (rq) setTimeout(() => viewRequest(pr, rq), 80);
     }
   }
-  else { view = 'home'; renderHome(); }
+  else { view = 'home'; entryList = '#/'; renderHome(); }
   if (view !== lastView) { window.scrollTo(0, 0); lastView = view; }
 }
 const rerender = () => route();
@@ -1356,7 +1359,7 @@ function renderProject(p, tab) {
     : '<span class="phase"><i style="width:0"></i></span>';
   $('#app').innerHTML = `<div class="wrap">
     <header class="appbar">
-      <button class="icon-btn" data-act="home" aria-label="Retour aux projets">${ic('back')}</button>
+      <button class="icon-btn" data-act="back-list" aria-label="Retour aux projets">${ic('back')}</button>
       <div class="titlebox"><h1>${esc(p.name)}</h1></div>
       ${(p.gps || p.address) ? `<a class="icon-btn" href="${p.gps ? gpsUrl(p.gps) : mapUrl}" target="_blank" rel="noopener" aria-label="Ouvrir dans Google Maps" title="${esc(p.gps ? 'Point GPS : ' + p.gps : p.address)}">${ic('pin')}</a>` : ''}
       <button class="icon-btn" data-act="edit-project" data-id="${p.id}" aria-label="Modifier le projet">${ic('edit')}</button>
@@ -2459,6 +2462,7 @@ function settingsSheet() {
 const findP = el => getP(el.dataset.id);
 const ACTS = {
   home: () => go('#/'),
+  'back-list': () => go(entryList),
   global: () => go('#/global'),
   settings: () => settingsSheet(),
   'new-project': () => projectForm(),
