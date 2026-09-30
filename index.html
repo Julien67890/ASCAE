@@ -1345,7 +1345,7 @@ function projectForm(p) {
    Page projet
    ========================================================= */
 const TABS = [['suivi', 'Suivi', 'wrench'], ['journal', 'Commentaires', 'message'], ['etapes', 'Étapes', 'layers'], ['liens', 'Documents', 'link'], ['contacts', 'Contacts', 'contact'], ['equipe', 'Équipe', 'users']];
-let reqFilter = 'actives', crAll = false;
+let reqFilter = 'actives', crAll = false, feedFilter = 'note';
 
 function renderProject(p, tab) {
   if (tab === 'demandes' || tab === 'rapports') tab = 'suivi';
@@ -1397,11 +1397,19 @@ function quickLink(p, k, c) {
   return `<a class="ql" href="#/p/${p.id}/liens" ${n ? '' : `data-act="add-link" data-id="${p.id}" data-cat="${k}"`}>${inner}</a>`;
 }
 function tabJournal(p) {
-  const items = [...(p.feed || [])].sort((a, b) => b.at - a.at);
+  const all = [...(p.feed || [])].sort((a, b) => b.at - a.at);
+  const items = feedFilter === 'all' ? all : all.filter(f => f.kind === feedFilter);
+  const counts = { all: all.length };
+  Object.keys(FEED_KINDS).forEach(k => { counts[k] = all.filter(f => f.kind === k).length; });
+  const FEED_FILTERS = [['all', 'Tout'], ['note', 'Commentaires'], ['step', 'Avancement'], ['report', 'Comptes rendus'], ['request', 'Demandes']]
+    .filter(([k]) => k === 'all' || counts[k] > 0);
   return `
       <div class="zone-head"><h2>Commentaires et suivi</h2>
         <button class="btn btn-ghost btn-sm" data-act="new-note" data-id="${p.id}">${ic('plus', 15)} Commentaire</button></div>
-      ${items.length ? `<div class="feed">${items.map(f => {
+      ${all.length > 1 ? `<div class="filters">${FEED_FILTERS.map(([k, l]) => `<button class="fchip ${k === feedFilter ? 'active' : ''}" data-act="feed-filter" data-f="${k}">${l}${k !== 'all' ? ` (${counts[k]})` : ''}</button>`).join('')}</div>` : ''}
+      ${!all.length ? emptyState('message', 'Aucune activité', "Les avancements, comptes rendus et demandes s'inscriront ici automatiquement.", `<button class="btn btn-ghost" data-act="new-note" data-id="${p.id}">${ic('plus', 17)} Écrire un commentaire</button>`)
+      : !items.length ? emptyState('message', 'Rien de ce type', "Aucun élément ne correspond à ce filtre.", `<button class="btn btn-ghost" data-act="feed-filter" data-f="all">Tout afficher</button>`)
+      : `<div class="feed">${items.map(f => {
         const k = FEED_KINDS[f.kind] || FEED_KINDS.note;
         return `<div class="fitem" data-fid="${f.id}">
           <span class="fic ${f.kind}">${ic(k.ic, 15)}</span>
@@ -1411,8 +1419,7 @@ function tabJournal(p) {
           </div>
           ${f.kind === 'note' ? `<button class="mini" data-act="del-note" data-id="${p.id}" data-fid="${f.id}" aria-label="Supprimer ce commentaire">${ic('trash', 16)}</button>` : ''}
         </div>`;
-      }).join('')}</div>`
-      : emptyState('message', 'Aucune activité', "Les avancements, comptes rendus et demandes s'inscriront ici automatiquement.", `<button class="btn btn-ghost" data-act="new-note" data-id="${p.id}">${ic('plus', 17)} Écrire un commentaire</button>`)}`;
+      }).join('')}</div>`}`;
 }
 
 function renderTab(p, tab) {
@@ -2481,6 +2488,7 @@ const ACTS = {
     touch(p); rerender(); toast('Commentaire supprimé');
   },
   'req-filter': el => { reqFilter = el.dataset.f; rerender(); },
+  'feed-filter': el => { feedFilter = el.dataset.f; rerender(); },
   'cr-all': () => { crAll = true; rerender(); },
   'new-request': el => requestForm(findP(el)),
   'view-request': el => { const p = findP(el), r = p && p.requests.find(x => x.id === el.dataset.rid); if (r) viewRequest(p, r); },
