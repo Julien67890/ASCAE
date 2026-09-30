@@ -860,7 +860,7 @@ const LINK_CATS = {
   photos: { l: 'Photos', ic: 'image', col: '#2E9E6A', empty: 'Aucun lien vers les photos.' },
   planning: { l: 'Planning', ic: 'calendar', col: '#B87900', empty: 'Aucun lien vers le planning.' }
 };
-const PV_TEMPLATE = ['Études et autorisations', 'Approvisionnement matériel', 'Préparation du site', 'Structure et supportage', 'Pose des modules', 'Câblage DC', 'Onduleurs et raccordement AC', 'Mise en service', 'Réception et DOE'];
+const PV_TEMPLATE = ['Visite technique', 'Préparation chantier', 'Fondations', 'Montage charpente', 'Pose des modules', 'Cablage DC', 'Cablage AC', 'Pose et raccordement du poste', 'Mise en service'];
 const CONTACT_ROLES = ['Client', "Maître d'œuvre", 'Bureau de contrôle', 'Coordinateur SPS', 'Gestionnaire de réseau', 'Sous-traitant', 'Fournisseur', 'Électricien', 'Couvreur'];
 
 /* =========================================================
@@ -1321,7 +1321,7 @@ function projectForm(p) {
         });
         if (bad) { toast('Corrigez les adresses e-mail en rouge'); return; }
         if (isNew) {
-          const np = { id: uid(), name, address: E.paddress.value.trim(), gps: normGps(E.pgps.value), users: us, steps: [], links: { plans: [], photos: [], planning: [] }, contacts: [], requests: [], reports: [], ownerEmail: FB.email, createdAt: Date.now(), updatedAt: Date.now() };
+          const np = { id: uid(), name, address: E.paddress.value.trim(), gps: normGps(E.pgps.value), users: us, steps: PV_TEMPLATE.map(n => ({ id: uid(), name: n, progress: 0 })), links: { plans: [], photos: [], planning: [] }, contacts: [], requests: [], reports: [], ownerEmail: FB.email, createdAt: Date.now(), updatedAt: Date.now() };
           state.projects.push(np); save(); closeSheet(); toast('Projet créé'); go('#/p/' + np.id + '/etapes');
         } else {
           p.name = name; p.address = E.paddress.value.trim(); p.gps = normGps(E.pgps.value); p.users = us;
