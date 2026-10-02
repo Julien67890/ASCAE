@@ -611,7 +611,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v46'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v47'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -2604,7 +2604,8 @@ async function loadCatalogue() {
     Object.entries(j.fiches || {}).forEach(([id, m]) => {
       const e = checkModel(m);
       if (e) { catalogueBad.push(id + ' : ' + e); return; }
-      ok[id] = Object.assign({ ref: id, version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m);
+      /* La clé du catalogue est l'identité de la fiche : elle prime sur le champ « ref », pour qu'une fiche enregistrée se rouvre toujours. */
+      ok[id] = Object.assign({ version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m, { ref: id });
     });
     FICHES = ok;
     if (catalogueBad.length) console.error('fiches.json : entrées ignorées', catalogueBad);
