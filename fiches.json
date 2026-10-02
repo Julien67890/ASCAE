@@ -1,0 +1,97 @@
+{
+  "_aide": "Catalogue des fiches de contrôle. Une fiche = une entrée sous « fiches ». Après modification, augmenter la version du cache dans sw.js (ascae-ci-vNN).",
+  "fiches": {
+    "PR-26_FO36": {
+      "ref": "PR-26_FO36",
+      "version": "16/09/26",
+      "title": "Fiche de contrôle Fondations",
+      "short": "Fondations",
+      "modeTitle": "Inspection des fondations",
+      "mode": [
+        "Marquage du plan de masse avec la position des non-conformités",
+        "Vérification de la position des ancrages",
+        "Mesure de la profondeur d’ancrage et taille des fondations",
+        "Mesure des ferraillages",
+        "Vérification du béton utilisé",
+        "Inspections des reprises faites sur site",
+        "Inspection des mesures de protections"
+      ],
+      "sampling": [
+        "Si inférieur à 500 kWc : toutes les fondations",
+        "Entre 500 kWc et 1 MWc : la moitié des fondations",
+        "Si supérieur à 1 MWc : 30 % des fondations"
+      ],
+      "rule": "Seuil d’alerte = 1 fondation non conforme",
+      "inspection": "Inspection visuelle et mesures des fondations",
+      "docs": "étude de sol, étude béton, plan d’ancrage, plan d’implantation, PGC, PPSPS",
+      "criteria": [
+        {
+          "id": "position",
+          "label": "Position des fondations",
+          "crit": "Critique"
+        },
+        {
+          "id": "profondeur",
+          "label": "Profondeur d’ancrage",
+          "crit": "Critique"
+        },
+        {
+          "id": "taille",
+          "label": "Taille des fondations",
+          "crit": "Critique"
+        },
+        {
+          "id": "beton",
+          "label": "Type de béton utilisé",
+          "crit": "Critique"
+        },
+        {
+          "id": "ferr_pres",
+          "label": "Présence des ferraillages",
+          "crit": "Critique"
+        },
+        {
+          "id": "ferr_taille",
+          "label": "Taille des ferraillages",
+          "crit": "Critique"
+        },
+        {
+          "id": "platines",
+          "label": "Présence des platines",
+          "crit": "Critique"
+        },
+        {
+          "id": "protections",
+          "label": "Présence des protections sur fondations réalisées en accord avec PGC",
+          "crit": "Critique"
+        }
+      ],
+      "photos": [
+        [
+          "reprises",
+          "Reprises faites sur site"
+        ],
+        [
+          "ferraillage",
+          "Échantillon de ferraillage avec mesure"
+        ],
+        [
+          "profondeur",
+          "Échantillon de profondeur avec mesure"
+        ],
+        [
+          "interface",
+          "Échantillon d’interface platines / ferraillages"
+        ],
+        [
+          "taille",
+          "Échantillon de taille de fondation avec mesure"
+        ],
+        [
+          "protection",
+          "Échantillon de mesure de protection"
+        ]
+      ]
+    }
+  }
+}
