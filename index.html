@@ -611,7 +611,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v47'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v48'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -2031,7 +2031,7 @@ function viewReport(p, r) {
         <div><dt>Dernière diffusion</dt><dd>${r.sentAt ? fmtDate(r.sentAt) : 'Pas encore envoyé'}</dd></div>
       </dl>
       ${sec('Travaux réalisés', r.works)}${sec('Observations et réserves', r.observations)}${sec('Actions à prévoir', r.actions)}${sec('Commentaire', r.comment)}
-      <div class="rv-sec">${fichesBlock(p, { reportId: r.id, requestId: r.requestId || '' })}</div>
+      ${(() => { const b = fichesBlock(p, { reportId: r.id, requestId: r.requestId || '', readOnly: true }); return b ? `<div class="rv-sec">${b}</div>` : ''; })()}
       ${snap.length ? `<div class="rv-sec"><h4>Avancement des étapes</h4><div class="rv-steps">${snap.map(s => `<div class="rv-step"><span>${esc(s.name)}</span>${cellsHTML(s.progress)}<b>${s.progress}%</b></div>`).join('')}</div></div>` : ''}`,
     foot: `<button class="btn btn-ghost btn-icon danger" id="cv-del" aria-label="Supprimer le compte rendu">${ic('trash', 18)}</button><button class="btn btn-ghost" id="cv-edit">${ic('edit', 17)} Modifier</button><button class="btn btn-primary" id="cv-mail">${ic('send', 17)} ${sent ? 'Renvoyer' : 'Valider et envoyer'}</button>`,
     onMount(sh) {
@@ -2629,6 +2629,14 @@ function fichesSummary(p, r) {
 function fichesBlock(p, ctx) {
   const list = (p.fiches || []).filter(f => ctx.reportId ? f.reportId === ctx.reportId : f.requestId === ctx.requestId)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const rows = f => {
+    const m = FICHES[f.model], nc = m ? ficheNc(m, f) : 0, ok = f.status === 'validee';
+    return `<button type="button" class="linked-row" data-fq="${f.id}">${ic('check', 16)}
+        <span><b>${esc(m ? m.title : f.model)}</b><small>${fmtDate(f.date)}${f.author ? ' \u2014 ' + esc(f.author) : ''}</small>
+          <span class="fq-pills">${nc ? `<span class="pill pr-haute">${nc} NC</span>` : ''}<span class="pill ${ok ? 'st-valide' : 'st-brouillon'}">${ok ? 'Validée' : 'Brouillon'}</span></span></span></button>`;
+  };
+  /* Lecture seule (consultation d'un compte rendu) : on liste les fiches, sans bouton d'ajout. */
+  if (ctx.readOnly) return list.length ? `<h4>Fiches de contrôle</h4><div class="linked">${list.map(rows).join('')}</div>` : '';
   return `<div class="flabel mt">Fiches de contrôle</div>
     ${list.length ? `<div class="linked">${list.map(f => {
       const m = FICHES[f.model], nc = m ? ficheNc(m, f) : 0, ok = f.status === 'validee';
