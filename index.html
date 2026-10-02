@@ -616,7 +616,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v50'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v51'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1596,15 +1596,15 @@ function requestForm(p, r) {
       };
       /* Choix des fiches à remplir : tout se passe dans le formulaire, sans changer d'écran. */
       const drawWanted = () => {
-        $('#rf-wanted', sh).innerHTML = wanted.map(id => `<div class="linked-row" style="cursor:default">${ic('doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(id)}</small></span>
+        $('#rf-wanted', sh).innerHTML = wanted.map(id => `<div class="linked-row" style="cursor:default">${ic('doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(ficheRef(id))}</small></span>
           <button type="button" class="mini" data-rm="${esc(id)}" aria-label="Retirer cette fiche">${ic('x', 17)}</button></div>`).join('');
       };
       const drawPicker = () => {
         const t = norm($('#rf-q', sh).value).split(/\s+/).filter(Boolean), box = $('#rf-plist', sh);
-        const all = Object.keys(FICHES).filter(id => !wanted.includes(id));
-        const hit = all.filter(id => { const m = FICHES[id], hay = norm(id + ' ' + m.title + ' ' + (m.short || '')); return t.every(w => hay.includes(w)); });
+        const all = Object.keys(FICHES).filter(id => !wanted.map(canonId).includes(id));
+        const hit = all.filter(id => { const m = FICHES[id], hay = norm(id + ' ' + m.ref + ' ' + m.title + ' ' + (m.short || '')); return t.every(w => hay.includes(w)); });
         box.innerHTML = hit.length
-          ? hit.map(id => `<button type="button" class="linked-row" data-add="${esc(id)}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)}</small></span></button>`).join('')
+          ? hit.map(id => `<button type="button" class="linked-row" data-add="${esc(id)}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(FICHES[id].ref)}</small></span></button>`).join('')
           : `<p class="empty-line">${catalogueFailed ? "Le catalogue des fiches n'a pas pu être chargé." : (all.length ? 'Aucune fiche ne correspond.' : 'Toutes les fiches disponibles sont déjà demandées.')}</p>`;
       };
       drawWanted();
@@ -1688,7 +1688,7 @@ function requestMail(p, r) {
   if (r.dueDate) L.push(`Échéance : ${fmtDate(r.dueDate)}`);
   if (p.address) L.push(`Adresse du chantier : ${p.address}`);
   if (r.description) L.push('', 'Description :', r.description);
-  if (reqFiches(r).length) { L.push('', 'Fiches de contrôle à remplir :'); reqFiches(r).forEach(id => L.push('  - ' + ficheName(id) + ' (' + id + ')')); }
+  if (reqFiches(r).length) { L.push('', 'Fiches de contrôle à remplir :'); reqFiches(r).forEach(id => L.push('  - ' + ficheName(id) + ' (' + ficheRef(id) + ')')); }
   L.push('', 'Ouvrir cette demande dans ASCAE C&I :', appBase() + '#/p/' + p.id + '/suivi/cr/' + r.id);
   L.push('', 'Cordialement,'); if (state.settings.userName) L.push(state.settings.userName);
   return { to: u && u.email ? [u.email] : [], subject: `[${p.name}] Demande d'intervention : ${r.title}`, body: L.join('\n'), title: 'Envoyer la demande' };
@@ -1856,10 +1856,10 @@ function reportForm(p, r, opts) {
         const reqId = rq ? rq.value : (d.requestId || '');
         const q = reqId ? p.requests.find(x => x.id === reqId) : null;
         const need = q ? reqFiches(q) : [];
-        const mine = r ? (p.fiches || []).filter(x => x.reportId === r.id && !need.includes(x.model)) : [];
+        const mine = r ? (p.fiches || []).filter(x => x.reportId === r.id && !need.map(canonId).includes(canonId(x.model))) : [];
         reqBox.innerHTML = (need.length ? `<div class="hint" style="margin-bottom:6px">Demandées par le chef de projet :</div><div class="linked" style="margin-bottom:8px">${need.map(id => {
             const st = reqFicheState(p, q, id), lab = REQ_FICHE_LABEL[st.state];
-            return `<div class="linked-row wrap" style="cursor:default">${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(id)}</small>
+            return `<div class="linked-row wrap" style="cursor:default">${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(ficheRef(id))}</small>
               <span class="fq-pills"><span class="pill ${lab[1]}">${lab[0]}</span></span></span>
               <button type="button" class="btn btn-ghost btn-sm" data-go="${esc(id)}">${st.state === 'todo' ? 'Renseigner' : st.state === 'wip' ? 'Reprendre' : 'Ouvrir'}</button></div>`;
           }).join('')}</div>` : '')
@@ -2667,21 +2667,27 @@ async function loadCatalogue() {
     const idx = await r.json();
     const names = Array.isArray(idx.fiches) ? idx.fiches.map(String) : [];
     const res = await Promise.allSettled(names.map(async name => {
-      if (!/^[\w.\-]+\.json$/.test(name)) throw new Error('nom de fichier invalide');
-      const rr = await fetch('fiches/' + name, { cache: 'no-cache' });
+      if (!/^[^\\/:*?"<>|\x00-\x1f]+\.json$/.test(name) || name.startsWith('.')) throw new Error('nom de fichier invalide (caractères interdits : \\ / : * ? " < > |)');
+      const rr = await fetch('fiches/' + encodeURIComponent(name), { cache: 'no-cache' });
       if (!rr.ok) throw new Error('fichier introuvable');
       let m;
       try { m = await rr.json(); } catch (e) { throw new Error('JSON mal formé (virgule ou guillemet manquant ?)'); }
       const e = checkModel(m);
       if (e) throw new Error(e);
       const id = name.replace(/\.json$/, '');
-      /* L'identifiant vient du nom du fichier : il prime sur le champ « ref », pour qu'une fiche enregistrée se rouvre toujours. */
-      return [id, Object.assign({ version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m, { ref: id })];
+      /* L'identifiant (id) vient du nom du fichier : c'est lui qui est enregistré avec la fiche remplie.
+         La référence imprimée (ref : PR-26_FO36…) vient du contenu du fichier et peut être différente. */
+      return [id, Object.assign({ ref: id, version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m, { id })];
     }));
     const ok = {};
     res.forEach((x, i) => {
       if (x.status === 'fulfilled') ok[x.value[0]] = x.value[1];
       else catalogueBad.push(names[i] + ' : ' + ((x.reason && x.reason.message) || 'erreur'));
+    });
+    /* Compatibilité : une fiche enregistrée ou demandée avant un renommage de fichier portait l'ancien
+       identifiant, qui était alors sa référence. On le reconnaît, sans le lister deux fois. */
+    Object.values(ok).forEach(m => {
+      if (m.ref !== m.id && !(m.ref in ok)) Object.defineProperty(ok, m.ref, { value: m, enumerable: false });
     });
     FICHES = ok;
     if (catalogueBad.length) console.error('fiches/ : fiches ignorées', catalogueBad);
@@ -2696,12 +2702,14 @@ const ficheNc = (m, f) => m.criteria.filter(c => (f.answers || {})[c.id] === 'NC
    d'en déduire l'état : à remplir, en cours, remplie. */
 const reqFiches = r => Array.isArray(r && r.fichesRequises) ? r.fichesRequises : [];
 function reqFicheState(p, r, id) {
-  const fl = (p.fiches || []).filter(f => f.requestId === r.id && f.model === id);
+  const fl = (p.fiches || []).filter(f => f.requestId === r.id && canonId(f.model) === canonId(id));
   const f = fl.find(x => x.status === 'validee') || fl[0] || null;
   return { f, state: !f ? 'todo' : f.status === 'validee' ? 'done' : 'wip' };
 }
 const REQ_FICHE_LABEL = { todo: ['À remplir', 'st-ouverte'], wip: ['En cours', 'st-encours'], done: ['Remplie', 'st-valide'] };
 const ficheName = id => (FICHES[id] && FICHES[id].title) || id;
+const ficheRef = id => (FICHES[id] && FICHES[id].ref) || id;
+const canonId = id => (FICHES[id] && FICHES[id].id) || id;
 function missingFiches(p, requestId) {
   const q = requestId ? p.requests.find(x => x.id === requestId) : null;
   return q ? reqFiches(q).filter(id => reqFicheState(p, q, id).state !== 'done') : [];
@@ -2719,11 +2727,11 @@ async function confirmMissingFiches(p, requestId) {
 /* Bloc affiché dans la demande (consultation) : fiches demandées et leur état. */
 function requestFichesBlock(p, r) {
   const req = reqFiches(r);
-  const extra = (p.fiches || []).filter(f => f.requestId === r.id && !req.includes(f.model));
+  const extra = (p.fiches || []).filter(f => f.requestId === r.id && !req.map(canonId).includes(canonId(f.model)));
   if (!req.length && !extra.length) return '';
   const body = (id, st) => {
     const m = FICHES[id], lab = REQ_FICHE_LABEL[st.state], nc = st.f && m ? ficheNc(m, st.f) : 0;
-    return `${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(id)}${st.f ? ' \u2014 ' + fmtDate(st.f.date) : ''}</small>
+    return `${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(ficheRef(id))}${st.f ? ' \u2014 ' + fmtDate(st.f.date) : ''}</small>
       <span class="fq-pills">${nc ? `<span class="pill pr-haute">${nc} NC</span>` : ''}<span class="pill ${lab[1]}">${lab[0]}</span></span></span>`;
   };
   const row = id => { const st = reqFicheState(p, r, id);
@@ -2794,7 +2802,7 @@ async function newFiche(p, ctx) {
     });
     return;
   }
-  const row = id => `<button type="button" class="linked-row" data-m="${id}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)} \u2014 mise à jour du ${esc(FICHES[id].version)}</small></span></button>`;
+  const row = id => `<button type="button" class="linked-row" data-m="${esc(id)}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(FICHES[id].ref)} \u2014 mise à jour du ${esc(FICHES[id].version)}</small></span></button>`;
   openSheet({
     title: 'Choisir une fiche',
     body: `${warn}<div class="search">${ic('search', 18)}<input id="fq-q" type="search" placeholder="Rechercher une fiche (nom ou référence)" autocomplete="off" aria-label="Rechercher une fiche" autofocus></div>
@@ -2805,7 +2813,7 @@ async function newFiche(p, ctx) {
       const open = id => { closeSheet(true); ficheForm(p, null, ctx, id); };
       const draw = () => {
         const t = norm(q.value).split(/\s+/).filter(Boolean);
-        const hit = ids.filter(id => { const m = FICHES[id], hay = norm(id + ' ' + m.title + ' ' + (m.short || '')); return t.every(w => hay.includes(w)); });
+        const hit = ids.filter(id => { const m = FICHES[id], hay = norm(id + ' ' + m.ref + ' ' + m.title + ' ' + (m.short || '')); return t.every(w => hay.includes(w)); });
         list.innerHTML = hit.map(row).join('');
         none.hidden = hit.length > 0;
         return hit;
@@ -3000,7 +3008,7 @@ function ficheForm(p, f, ctx, modelId) {
           if (!data.validator.name) { E.vname.classList.add('invalid'); E.vname.focus(); toast('Indiquez le nom du validateur'); return null; }
         }
         const rec = isNew
-          ? { id: uid(), model: m.ref, modelVersion: m.version, requestId: ctx.requestId || '', reportId: ctx.reportId || '', createdAt: Date.now(), author: meName() }
+          ? { id: uid(), model: m.id, modelVersion: m.version, requestId: ctx.requestId || '', reportId: ctx.reportId || '', createdAt: Date.now(), author: meName() }
           : f;
         Object.assign(rec, data, {
           photos: ph, ncOpen: m.criteria.filter(c => data.answers[c.id] === 'NC').length,
