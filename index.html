@@ -611,7 +611,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v44'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v46'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1555,13 +1555,18 @@ function requestForm(p, r) {
         <div class="field"><label for="rf-p">Priorité</label><select id="rf-p" name="priority">${Object.entries(PRIO).map(([k, v]) => `<option value="${k}" ${k === d.priority ? 'selected' : ''}>${v.l}</option>`).join('')}</select></div>
         <div class="field"><label for="rf-e">Échéance</label><input id="rf-e" type="date" name="dueDate" value="${esc(d.dueDate)}"></div>
       </div>
+      <div class="field"><div class="flabel">Fiches de contrôle</div>
+        ${(() => { const fl = r ? (p.fiches || []).filter(x => x.requestId === r.id && !x.reportId) : [];
+          return fl.length ? `<div class="recips" style="margin-bottom:8px">${fl.map(x => { const m = FICHES[x.model]; return `<span class="chip">${ic('check', 13)}<span>${esc(m ? m.short : x.model)} \u2014 ${x.status === 'validee' ? 'validée' : 'brouillon'}</span></span>`; }).join('')}</div>` : ''; })()}
+        <button type="button" class="btn btn-ghost btn-block" id="rf-fiche">${ic('plus', 17)} Ajouter une fiche de contrôle</button>
+        <p class="hint mt-xs">${isNew ? "La demande est d'abord créée, puis la fiche s'ouvre. Pour prévenir la personne assignée, utilisez ensuite « Envoyer »." : "Les modifications sont enregistrées avant d'ouvrir la fiche."}</p></div>
       ${isNew && p.users.length ? `<label class="check"><input type="checkbox" name="notify" checked><span>Prévenir la personne assignée par e-mail</span></label>` : ''}
     </form>`,
     foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="rf-save">${isNew ? 'Créer la demande' : 'Enregistrer'}</button>`,
     onMount(sh) {
       const f = $('#rf', sh);
       sh.addEventListener('input', e => e.target.classList.remove('invalid'));
-      const submit = () => {
+      const submit = withFiche => {
         const E = f.elements, title = E.title.value.trim();
         if (!title) { E.title.classList.add('invalid'); E.title.focus(); toast("Indiquez l'objet de la demande"); return; }
         const data = { title, description: E.description.value.trim(), assigneeId: E.assigneeId ? E.assigneeId.value : '', priority: E.priority.value, dueDate: E.dueDate.value };
@@ -1572,15 +1577,18 @@ function requestForm(p, r) {
             + (nr.assigneeId && userById(p, nr.assigneeId) ? ' (assignée à ' + userById(p, nr.assigneeId).name + ')' : ''));
           touch(p);
           const notify = E.notify && E.notify.checked;
-          closeSheet(); toast('Demande créée'); rerender();
+          closeSheet(true); toast('Demande créée'); rerender();
+          if (withFiche === true) { newFiche(p, { requestId: nr.id, back: () => viewRequest(p, nr) }); return; }
           if (notify) mailSheet(requestMail(p, nr));
         } else {
           Object.assign(r, data); r.updatedAt = Date.now();
           logFeed(p, 'request', 'Demande modifiée : ' + r.title);
-          touch(p); closeSheet(); toast('Demande enregistrée'); rerender();
+          touch(p); closeSheet(true); toast('Demande enregistrée'); rerender();
+          if (withFiche === true) newFiche(p, { requestId: r.id, back: () => viewRequest(p, r) });
         }
       };
-      $('#rf-save', sh).onclick = submit;
+      $('#rf-fiche', sh).onclick = () => submit(true);
+      $('#rf-save', sh).onclick = () => submit();
       f.onsubmit = e => { e.preventDefault(); submit(); };
     }
   });
@@ -1702,15 +1710,15 @@ function reportForm(p, r, opts) {
         <label class="check mt-xs" id="cr-done-wrap" ${d.requestId ? '' : 'hidden'}><input type="checkbox" id="cr-done" checked><span>Clore la demande à la validation</span></label></div>` : ''}
       ${meName() ? `<div class="byline"><span>Rédigé par <b>${esc(d.author || meName())}</b></span><button type="button" class="linklike" id="cr-who">Ce n'est pas moi</button></div>`
         : `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" value="" placeholder="Votre nom, mémorisé pour les prochains comptes rendus"></div>`}
+      <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
+      <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
+      <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
+      <div class="field"><label for="cr-cm">Commentaire</label><textarea id="cr-cm" name="comment" rows="3" placeholder="Tout ce qui mérite d'être signalé sans entrer dans les catégories ci-dessus">${esc(d.comment || '')}</textarea></div>
       <div class="field">
         <div class="flabel">Photos du chantier</div>
         <button type="button" class="btn btn-ghost btn-block" id="cr-photos">${ic('image', 17)} ${p.links.photos.length ? 'Ajouter des photos' : 'Indiquer le dossier photos'}</button>
         <p class="hint mt-xs">${p.links.photos.length ? "Le dossier du chantier s'ouvre dans un nouvel onglet, déposez-y vos prises de vue." : "Aucun dossier n'est encore associé à ce chantier."}</p>
       </div>
-      <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
-      <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
-      <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
-      <div class="field"><label for="cr-cm">Commentaire</label><textarea id="cr-cm" name="comment" rows="3" placeholder="Tout ce qui mérite d'être signalé sans entrer dans les catégories ci-dessus">${esc(d.comment || '')}</textarea></div>
       <div class="field"><div class="flabel">Fiches de contrôle</div>
         ${(() => { const fl = r ? (p.fiches || []).filter(x => x.reportId === r.id) : [];
           return fl.length ? `<div class="recips" style="margin-bottom:8px">${fl.map(x => { const m = FICHES[x.model]; return `<span class="chip">${ic('check', 13)}<span>${esc(m ? m.short : x.model)} \u2014 ${x.status === 'validee' ? 'validée' : 'brouillon'}</span></span>`; }).join('')}</div>` : ''; })()}
@@ -2568,43 +2576,41 @@ const FICHE_PHOTOS = collection(fbDb, 'fichePhotos');
 const ANS = { C: 'Conforme', NC: 'Non conforme', PR: 'Pas réalisé' };
 const DECISIONS = { conforme: 'Conforme', reserves: 'Conforme avec réserves', nonconforme: 'Non conforme' };
 
-const FICHES = {
-  'PR-26_FO36': {
-    ref: 'PR-26_FO36', version: '16/09/26', title: 'Fiche de contrôle Fondations', short: 'Fondations',
-    modeTitle: 'Inspection des fondations',
-    mode: [
-      'Marquage du plan de masse avec la position des non-conformités',
-      'Vérification de la position des ancrages',
-      'Mesure de la profondeur d\u2019ancrage et taille des fondations',
-      'Mesure des ferraillages',
-      'Vérification du béton utilisé',
-      'Inspections des reprises faites sur site',
-      'Inspection des mesures de protections'
-    ],
-    sampling: ['Si inférieur à 500 kWc : toutes les fondations', 'Entre 500 kWc et 1 MWc : la moitié des fondations', 'Si supérieur à 1 MWc : 30 % des fondations'],
-    rule: 'Seuil d\u2019alerte = 1 fondation non conforme',
-    inspection: 'Inspection visuelle et mesures des fondations',
-    docs: 'étude de sol, étude béton, plan d\u2019ancrage, plan d\u2019implantation, PGC, PPSPS',
-    criteria: [
-      { id: 'position', label: 'Position des fondations', crit: 'Critique' },
-      { id: 'profondeur', label: 'Profondeur d\u2019ancrage', crit: 'Critique' },
-      { id: 'taille', label: 'Taille des fondations', crit: 'Critique' },
-      { id: 'beton', label: 'Type de béton utilisé', crit: 'Critique' },
-      { id: 'ferr_pres', label: 'Présence des ferraillages', crit: 'Critique' },
-      { id: 'ferr_taille', label: 'Taille des ferraillages', crit: 'Critique' },
-      { id: 'platines', label: 'Présence des platines', crit: 'Critique' },
-      { id: 'protections', label: 'Présence des protections sur fondations réalisées en accord avec PGC', crit: 'Critique' }
-    ],
-    photos: [
-      ['reprises', 'Reprises faites sur site'],
-      ['ferraillage', 'Échantillon de ferraillage avec mesure'],
-      ['profondeur', 'Échantillon de profondeur avec mesure'],
-      ['interface', 'Échantillon d\u2019interface platines / ferraillages'],
-      ['taille', 'Échantillon de taille de fondation avec mesure'],
-      ['protection', 'Échantillon de mesure de protection']
-    ]
+/* Le catalogue des fiches vit dans un fichier séparé, fiches.json : pour ajouter ou
+   corriger une fiche, on ne touche qu'à ce fichier. Les entrées mal formées sont écartées
+   (et signalées dans l'écran de choix) sans empêcher les autres de fonctionner. */
+let FICHES = {};
+let catalogueBad = [], catalogueFailed = false;
+function checkModel(m) {
+  if (!m || typeof m !== 'object') return 'entrée invalide';
+  if (!m.title) return 'titre manquant';
+  if (!Array.isArray(m.criteria) || !m.criteria.length) return 'critères manquants';
+  const seen = new Set();
+  for (const c of m.criteria) {
+    if (!c || !c.id || !c.label) return 'critère incomplet';
+    if (seen.has(c.id)) return 'critère en double : ' + c.id;
+    seen.add(c.id);
   }
-};
+  if (!Array.isArray(m.photos)) return 'liste de photos manquante';
+  for (const x of m.photos) if (!Array.isArray(x) || !x[0] || !x[1]) return 'photo mal définie';
+  return '';
+}
+async function loadCatalogue() {
+  catalogueBad = []; catalogueFailed = false;
+  try {
+    const r = await fetch('fiches.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(), ok = {};
+    Object.entries(j.fiches || {}).forEach(([id, m]) => {
+      const e = checkModel(m);
+      if (e) { catalogueBad.push(id + ' : ' + e); return; }
+      ok[id] = Object.assign({ ref: id, version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m);
+    });
+    FICHES = ok;
+    if (catalogueBad.length) console.error('fiches.json : entrées ignorées', catalogueBad);
+  } catch (e) { console.error('fiches.json', e); catalogueFailed = true; }
+}
+let catalogueReady = loadCatalogue();
 
 const ficheNc = (m, f) => m.criteria.filter(c => (f.answers || {})[c.id] === 'NC').length;
 
@@ -2640,13 +2646,29 @@ function bindFiches(sh, p, ctx) {
   const nb = $('[data-fq-new]', sh);
   if (nb) nb.onclick = () => { closeSheet(); newFiche(p, ctx); };
 }
-function newFiche(p, ctx) {
+async function newFiche(p, ctx) {
   /* Le choix de la fiche s'affiche toujours, même avec un seul modèle. */
+  await catalogueReady;
   const ids = Object.keys(FICHES);
+  const warn = catalogueBad.length ? `<div class="notice warn">${ic('alert', 16)}<span>${plural(catalogueBad.length, 'fiche ignorée', 'fiches ignorées')} (erreur dans fiches.json) : ${esc(catalogueBad.join(' ; '))}</span></div>` : '';
+  if (!ids.length) {
+    openSheet({
+      title: 'Choisir une fiche',
+      body: catalogueFailed
+        ? `<div class="notice warn">${ic('alert', 16)}<span>Le catalogue des fiches n'a pas pu être chargé. Vérifiez la connexion, puis réessayez.</span></div>`
+        : `${warn}<p class="empty-line">Aucune fiche n'est disponible.</p>`,
+      foot: catalogueFailed ? `<button class="btn btn-primary btn-block" id="fq-retry">Réessayer</button>` : '',
+      onMount(sh) {
+        const b = $('#fq-retry', sh);
+        if (b) b.onclick = () => { catalogueReady = loadCatalogue(); closeSheet(true); newFiche(p, ctx); };
+      }
+    });
+    return;
+  }
   const row = id => `<button type="button" class="linked-row" data-m="${id}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)} \u2014 mise à jour du ${esc(FICHES[id].version)}</small></span></button>`;
   openSheet({
     title: 'Choisir une fiche',
-    body: `<div class="search">${ic('search', 18)}<input id="fq-q" type="search" placeholder="Rechercher une fiche (nom ou référence)" autocomplete="off" aria-label="Rechercher une fiche" autofocus></div>
+    body: `${warn}<div class="search">${ic('search', 18)}<input id="fq-q" type="search" placeholder="Rechercher une fiche (nom ou référence)" autocomplete="off" aria-label="Rechercher une fiche" autofocus></div>
       <div class="linked" id="fq-list">${ids.map(row).join('')}</div>
       <p class="empty-line" id="fq-none" hidden>Aucune fiche ne correspond à cette recherche.</p>`,
     onMount(sh) {
