@@ -1,0 +1,7 @@
+{
+  "_aide": "Liste des fiches de contrôle proposées par l'application, dans l'ordre d'affichage. Une ligne par fichier du dossier fiches/. Le nom du fichier (sans .json) est l'identifiant de la fiche : ne pas le changer une fois la fiche utilisée.",
+  "fiches": [
+    "PR-26_FO36.json",
+    "TEST-SI.json"
+  ]
+}

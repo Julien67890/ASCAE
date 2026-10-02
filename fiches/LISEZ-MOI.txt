@@ -1,0 +1,21 @@
+FICHES DE CONTROLE - mode d'emploi
+===================================
+
+Une fiche = un fichier .json dans ce dossier + une ligne dans index.json.
+
+AJOUTER UNE FICHE
+1. Copier un fichier existant (ex. PR-26_FO36.json) et le renommer avec la reference de la
+   nouvelle fiche (ex. PR-26_FO42.json). Le nom du fichier est l'identifiant de la fiche.
+2. Modifier son contenu : titre, mode operatoire, criteres, photos a annexer.
+3. Ajouter le nom du fichier dans index.json (liste "fiches"), entre guillemets, separe par une virgule.
+4. Deposer le tout dans le depot. Au prochain lancement en ligne, l'application la propose.
+
+CORRIGER UNE FICHE
+- Changer librement les textes (titre, "label" des criteres, mode operatoire, noms de photos).
+- NE PAS changer l'"id" d'un critere ni la 1re valeur d'une photo ([ "id", "libelle" ]) :
+  les reponses deja enregistrees y sont rattachees.
+- NE PAS renommer ni supprimer un fichier deja utilise dans des comptes rendus ou des demandes.
+
+SI UNE FICHE N'APPARAIT PAS
+L'ecran "Choisir une fiche" signale le fichier en cause (JSON mal forme, fichier introuvable,
+criteres manquants...). Les autres fiches continuent de fonctionner.

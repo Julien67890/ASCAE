@@ -541,6 +541,11 @@ td .avatars{margin-left:0}
 .fq-dec .check{margin:0}
 .fq-hint{min-height:1.3em;margin:4px 0 14px}
 .fq-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.rf-picker{margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
+.rf-picker .search{margin:0 0 10px}
+.linked-row .btn-sm{flex:none}
+.linked{grid-template-columns:minmax(0,1fr)}
+.linked-row.wrap b{white-space:normal;overflow:visible;text-overflow:clip}
 .sheet.fiche-sheet .sheet-foot .btn{flex:1 1 84px;padding-left:8px;padding-right:8px}
 </style>
 </head>
@@ -611,7 +616,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v48'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v50'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1555,21 +1560,25 @@ function requestForm(p, r) {
         <div class="field"><label for="rf-p">Priorité</label><select id="rf-p" name="priority">${Object.entries(PRIO).map(([k, v]) => `<option value="${k}" ${k === d.priority ? 'selected' : ''}>${v.l}</option>`).join('')}</select></div>
         <div class="field"><label for="rf-e">Échéance</label><input id="rf-e" type="date" name="dueDate" value="${esc(d.dueDate)}"></div>
       </div>
-      <div class="field"><div class="flabel">Fiches de contrôle</div>
-        ${(() => { const fl = r ? (p.fiches || []).filter(x => x.requestId === r.id && !x.reportId) : [];
-          return fl.length ? `<div class="recips" style="margin-bottom:8px">${fl.map(x => { const m = FICHES[x.model]; return `<span class="chip">${ic('check', 13)}<span>${esc(m ? m.short : x.model)} \u2014 ${x.status === 'validee' ? 'validée' : 'brouillon'}</span></span>`; }).join('')}</div>` : ''; })()}
-        <button type="button" class="btn btn-ghost btn-block" id="rf-fiche">${ic('plus', 17)} Ajouter une fiche de contrôle</button>
-        <p class="hint mt-xs">${isNew ? "La demande est d'abord créée, puis la fiche s'ouvre. Pour prévenir la personne assignée, utilisez ensuite « Envoyer »." : "Les modifications sont enregistrées avant d'ouvrir la fiche."}</p></div>
+      <div class="field"><div class="flabel">Fiches de contrôle à remplir</div>
+        <div class="linked" id="rf-wanted" style="margin-bottom:8px"></div>
+        <button type="button" class="btn btn-ghost btn-block" id="rf-pick">${ic('plus', 17)} Demander une fiche de contrôle</button>
+        <div class="rf-picker" id="rf-picker" hidden>
+          <div class="search">${ic('search', 18)}<input id="rf-q" type="search" placeholder="Rechercher une fiche (nom ou référence)" autocomplete="off" aria-label="Rechercher une fiche"></div>
+          <div class="linked" id="rf-plist"></div>
+        </div>
+        <p class="hint mt-xs">Le conducteur de travaux la renseignera depuis son compte rendu.</p></div>
       ${isNew && p.users.length ? `<label class="check"><input type="checkbox" name="notify" checked><span>Prévenir la personne assignée par e-mail</span></label>` : ''}
     </form>`,
     foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="rf-save">${isNew ? 'Créer la demande' : 'Enregistrer'}</button>`,
     onMount(sh) {
       const f = $('#rf', sh);
       sh.addEventListener('input', e => e.target.classList.remove('invalid'));
-      const submit = withFiche => {
+      let wanted = reqFiches(d).slice();
+      const submit = () => {
         const E = f.elements, title = E.title.value.trim();
         if (!title) { E.title.classList.add('invalid'); E.title.focus(); toast("Indiquez l'objet de la demande"); return; }
-        const data = { title, description: E.description.value.trim(), assigneeId: E.assigneeId ? E.assigneeId.value : '', priority: E.priority.value, dueDate: E.dueDate.value };
+        const data = { title, description: E.description.value.trim(), assigneeId: E.assigneeId ? E.assigneeId.value : '', priority: E.priority.value, dueDate: E.dueDate.value, fichesRequises: wanted.slice() };
         if (isNew) {
           const nr = { id: uid(), ...data, status: 'ouverte', createdAt: Date.now(), createdBy: state.settings.userName || '' };
           p.requests.push(nr);
@@ -1578,16 +1587,40 @@ function requestForm(p, r) {
           touch(p);
           const notify = E.notify && E.notify.checked;
           closeSheet(true); toast('Demande créée'); rerender();
-          if (withFiche === true) { newFiche(p, { requestId: nr.id, back: () => viewRequest(p, nr) }); return; }
           if (notify) mailSheet(requestMail(p, nr));
         } else {
           Object.assign(r, data); r.updatedAt = Date.now();
           logFeed(p, 'request', 'Demande modifiée : ' + r.title);
           touch(p); closeSheet(true); toast('Demande enregistrée'); rerender();
-          if (withFiche === true) newFiche(p, { requestId: r.id, back: () => viewRequest(p, r) });
         }
       };
-      $('#rf-fiche', sh).onclick = () => submit(true);
+      /* Choix des fiches à remplir : tout se passe dans le formulaire, sans changer d'écran. */
+      const drawWanted = () => {
+        $('#rf-wanted', sh).innerHTML = wanted.map(id => `<div class="linked-row" style="cursor:default">${ic('doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(id)}</small></span>
+          <button type="button" class="mini" data-rm="${esc(id)}" aria-label="Retirer cette fiche">${ic('x', 17)}</button></div>`).join('');
+      };
+      const drawPicker = () => {
+        const t = norm($('#rf-q', sh).value).split(/\s+/).filter(Boolean), box = $('#rf-plist', sh);
+        const all = Object.keys(FICHES).filter(id => !wanted.includes(id));
+        const hit = all.filter(id => { const m = FICHES[id], hay = norm(id + ' ' + m.title + ' ' + (m.short || '')); return t.every(w => hay.includes(w)); });
+        box.innerHTML = hit.length
+          ? hit.map(id => `<button type="button" class="linked-row" data-add="${esc(id)}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)}</small></span></button>`).join('')
+          : `<p class="empty-line">${catalogueFailed ? "Le catalogue des fiches n'a pas pu être chargé." : (all.length ? 'Aucune fiche ne correspond.' : 'Toutes les fiches disponibles sont déjà demandées.')}</p>`;
+      };
+      drawWanted();
+      $('#rf-pick', sh).onclick = async () => {
+        const pk = $('#rf-picker', sh);
+        if (!pk.hidden) { pk.hidden = true; return; }
+        await catalogueReady;
+        pk.hidden = false; $('#rf-q', sh).value = ''; drawPicker(); $('#rf-q', sh).focus();
+      };
+      $('#rf-q', sh).addEventListener('input', drawPicker);
+      $('#rf-q', sh).addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      sh.addEventListener('click', e => {
+        const a = e.target.closest('[data-add]'), x = e.target.closest('[data-rm]');
+        if (a) { wanted.push(a.dataset.add); $('#rf-picker', sh).hidden = true; drawWanted(); sheetDirty = true; }
+        if (x) { wanted = wanted.filter(id => id !== x.dataset.rm); drawWanted(); sheetDirty = true; }
+      });
       $('#rf-save', sh).onclick = () => submit();
       f.onsubmit = e => { e.preventDefault(); submit(); };
     }
@@ -1618,7 +1651,7 @@ function viewRequest(p, r) {
               <span class="pill ${x.status === 'valide' ? 'st-valide' : 'st-brouillon'}">${x.status === 'valide' ? 'Validé' : 'Brouillon'}</span></button>`).join('')}</div>`
           : `<p class="hint">Aucun compte rendu rattaché à cette demande.</p>`;
       })()}
-      ${fichesBlock(p, { requestId: r.id })}
+      ${requestFichesBlock(p, r)}
       <button type="button" class="btn btn-ghost btn-block mt" id="rq-cr">${ic('plus', 17)} Rédiger un compte rendu</button>`,
     foot: `<button class="btn btn-ghost btn-icon danger" id="rq-del" aria-label="Supprimer la demande">${ic('trash', 18)}</button><button class="btn btn-ghost" id="rq-edit">${ic('edit', 17)} Modifier</button><button class="btn btn-primary" id="rq-mail">${ic('mail', 17)} Envoyer</button>`,
     onMount(sh) {
@@ -1655,6 +1688,7 @@ function requestMail(p, r) {
   if (r.dueDate) L.push(`Échéance : ${fmtDate(r.dueDate)}`);
   if (p.address) L.push(`Adresse du chantier : ${p.address}`);
   if (r.description) L.push('', 'Description :', r.description);
+  if (reqFiches(r).length) { L.push('', 'Fiches de contrôle à remplir :'); reqFiches(r).forEach(id => L.push('  - ' + ficheName(id) + ' (' + id + ')')); }
   L.push('', 'Ouvrir cette demande dans ASCAE C&I :', appBase() + '#/p/' + p.id + '/suivi/cr/' + r.id);
   L.push('', 'Cordialement,'); if (state.settings.userName) L.push(state.settings.userName);
   return { to: u && u.email ? [u.email] : [], subject: `[${p.name}] Demande d'intervention : ${r.title}`, body: L.join('\n'), title: 'Envoyer la demande' };
@@ -1720,8 +1754,7 @@ function reportForm(p, r, opts) {
         <p class="hint mt-xs">${p.links.photos.length ? "Le dossier du chantier s'ouvre dans un nouvel onglet, déposez-y vos prises de vue." : "Aucun dossier n'est encore associé à ce chantier."}</p>
       </div>
       <div class="field"><div class="flabel">Fiches de contrôle</div>
-        ${(() => { const fl = r ? (p.fiches || []).filter(x => x.reportId === r.id) : [];
-          return fl.length ? `<div class="recips" style="margin-bottom:8px">${fl.map(x => { const m = FICHES[x.model]; return `<span class="chip">${ic('check', 13)}<span>${esc(m ? m.short : x.model)} \u2014 ${x.status === 'validee' ? 'validée' : 'brouillon'}</span></span>`; }).join('')}</div>` : ''; })()}
+        <div id="cr-reqf"></div>
         <button type="button" class="btn btn-ghost btn-block" id="cr-fiche">${ic('plus', 17)} Ajouter une fiche de contrôle</button>
         <p class="hint mt-xs">Le compte rendu est d'abord enregistré en brouillon, puis la fiche s'ouvre.</p></div>
       ${p.steps.length ? `<div class="field"><div class="flabel-row"><label>Avancement des étapes</label>
@@ -1817,6 +1850,33 @@ function reportForm(p, r, opts) {
 
         touch(p); return rep;
       };
+      /* Fiches réclamées par la demande liée, avec leur état : le conducteur les renseigne d'ici. */
+      const reqBox = $('#cr-reqf', sh);
+      const drawReqFiches = () => {
+        const reqId = rq ? rq.value : (d.requestId || '');
+        const q = reqId ? p.requests.find(x => x.id === reqId) : null;
+        const need = q ? reqFiches(q) : [];
+        const mine = r ? (p.fiches || []).filter(x => x.reportId === r.id && !need.includes(x.model)) : [];
+        reqBox.innerHTML = (need.length ? `<div class="hint" style="margin-bottom:6px">Demandées par le chef de projet :</div><div class="linked" style="margin-bottom:8px">${need.map(id => {
+            const st = reqFicheState(p, q, id), lab = REQ_FICHE_LABEL[st.state];
+            return `<div class="linked-row wrap" style="cursor:default">${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(id)}</small>
+              <span class="fq-pills"><span class="pill ${lab[1]}">${lab[0]}</span></span></span>
+              <button type="button" class="btn btn-ghost btn-sm" data-go="${esc(id)}">${st.state === 'todo' ? 'Renseigner' : st.state === 'wip' ? 'Reprendre' : 'Ouvrir'}</button></div>`;
+          }).join('')}</div>` : '')
+          + (mine.length ? `<div class="recips" style="margin-bottom:8px">${mine.map(x => `<span class="chip">${ic('check', 13)}<span>${esc(ficheName(x.model))} \u2014 ${x.status === 'validee' ? 'validée' : 'brouillon'}</span></span>`).join('')}</div>` : '');
+      };
+      drawReqFiches();
+      catalogueReady.then(drawReqFiches);
+      if (rq) rq.addEventListener('change', drawReqFiches);
+      reqBox.addEventListener('click', e => {
+        const b = e.target.closest('[data-go]'); if (!b) return;
+        const id = b.dataset.go;
+        const rep = persist(false); if (!rep) return;
+        const q2 = rep.requestId ? p.requests.find(x => x.id === rep.requestId) : null;
+        const st = q2 ? reqFicheState(p, q2, id) : { f: null };
+        closeSheet(true); rerender(); toast('Brouillon enregistré');
+        ficheForm(p, st.f, { reportId: rep.id, requestId: rep.requestId || '', back: () => viewReport(p, rep) }, id);
+      });
       const fb = $('#cr-fiche', sh);
       if (fb) fb.onclick = () => {
         const rep = persist(false); if (!rep) return;
@@ -1824,7 +1884,11 @@ function reportForm(p, r, opts) {
         newFiche(p, { reportId: rep.id, requestId: rep.requestId || '', back: () => viewReport(p, rep) });
       };
       $('#cr-draft', sh).onclick = () => { const rep = persist(false); if (rep) { closeSheet(); toast(wasSent ? 'Compte rendu enregistré' : 'Brouillon enregistré'); rerender(); } };
-      $('#cr-send', sh).onclick = () => { const rep = persist(true); if (rep) { closeSheet(); toast(rep.closedRequest ? 'Compte rendu validé, demande close' : 'Compte rendu validé'); rerender(); mailSheet(reportMail(p, rep)); } };
+      $('#cr-send', sh).onclick = async () => {
+        const reqId = f.elements.requestId ? f.elements.requestId.value : (d.requestId || '');
+        if (!await confirmMissingFiches(p, reqId)) return;
+        const rep = persist(true); if (rep) { closeSheet(); toast(rep.closedRequest ? 'Compte rendu validé, demande close' : 'Compte rendu validé'); rerender(); mailSheet(reportMail(p, rep)); }
+      };
       f.onsubmit = e => e.preventDefault();
     }
   });
@@ -2037,7 +2101,7 @@ function viewReport(p, r) {
     onMount(sh) {
       bindFiches(sh, p, { reportId: r.id, requestId: r.requestId || '', back: () => viewReport(p, r) });
       $('#cv-edit', sh).onclick = () => { closeSheet(); reportForm(p, r); };
-      $('#cv-mail', sh).onclick = () => { r.status = 'valide'; r.sentAt = Date.now(); touch(p); closeSheet(); rerender(); mailSheet(reportMail(p, r)); };
+      $('#cv-mail', sh).onclick = async () => { if (!await confirmMissingFiches(p, r.requestId)) return; r.status = 'valide'; r.sentAt = Date.now(); touch(p); closeSheet(); rerender(); mailSheet(reportMail(p, r)); };
       $('#cv-del', sh).onclick = async () => {
         if (await confirmDialog({ title: 'Supprimer le compte rendu ?', message: `Le compte rendu du ${fmtDate(r.date)} sera définitivement supprimé.`, confirm: 'Supprimer' })) {
           p.reports = p.reports.filter(x => x !== r); touch(p); closeSheet(); toast('Compte rendu supprimé'); rerender();
@@ -2576,13 +2640,13 @@ const FICHE_PHOTOS = collection(fbDb, 'fichePhotos');
 const ANS = { C: 'Conforme', NC: 'Non conforme', PR: 'Pas réalisé' };
 const DECISIONS = { conforme: 'Conforme', reserves: 'Conforme avec réserves', nonconforme: 'Non conforme' };
 
-/* Le catalogue des fiches vit dans un fichier séparé, fiches.json : pour ajouter ou
-   corriger une fiche, on ne touche qu'à ce fichier. Les entrées mal formées sont écartées
-   (et signalées dans l'écran de choix) sans empêcher les autres de fonctionner. */
+/* Les fiches vivent dans le dossier fiches/ : un fichier par fiche, plus fiches/index.json qui les liste.
+   Le nom du fichier (sans .json) est l'identifiant de la fiche. Une fiche mal formée est écartée
+   (et signalée dans l'écran de choix) sans empêcher les autres de fonctionner. */
 let FICHES = {};
 let catalogueBad = [], catalogueFailed = false;
 function checkModel(m) {
-  if (!m || typeof m !== 'object') return 'entrée invalide';
+  if (!m || typeof m !== 'object') return 'contenu invalide';
   if (!m.title) return 'titre manquant';
   if (!Array.isArray(m.criteria) || !m.criteria.length) return 'critères manquants';
   const seen = new Set();
@@ -2598,22 +2662,78 @@ function checkModel(m) {
 async function loadCatalogue() {
   catalogueBad = []; catalogueFailed = false;
   try {
-    const r = await fetch('fiches.json', { cache: 'no-cache' });
+    const r = await fetch('fiches/index.json', { cache: 'no-cache' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json(), ok = {};
-    Object.entries(j.fiches || {}).forEach(([id, m]) => {
+    const idx = await r.json();
+    const names = Array.isArray(idx.fiches) ? idx.fiches.map(String) : [];
+    const res = await Promise.allSettled(names.map(async name => {
+      if (!/^[\w.\-]+\.json$/.test(name)) throw new Error('nom de fichier invalide');
+      const rr = await fetch('fiches/' + name, { cache: 'no-cache' });
+      if (!rr.ok) throw new Error('fichier introuvable');
+      let m;
+      try { m = await rr.json(); } catch (e) { throw new Error('JSON mal formé (virgule ou guillemet manquant ?)'); }
       const e = checkModel(m);
-      if (e) { catalogueBad.push(id + ' : ' + e); return; }
-      /* La clé du catalogue est l'identité de la fiche : elle prime sur le champ « ref », pour qu'une fiche enregistrée se rouvre toujours. */
-      ok[id] = Object.assign({ version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m, { ref: id });
+      if (e) throw new Error(e);
+      const id = name.replace(/\.json$/, '');
+      /* L'identifiant vient du nom du fichier : il prime sur le champ « ref », pour qu'une fiche enregistrée se rouvre toujours. */
+      return [id, Object.assign({ version: '', short: m.title, modeTitle: '', mode: [], sampling: [], rule: '', inspection: m.title, docs: '' }, m, { ref: id })];
+    }));
+    const ok = {};
+    res.forEach((x, i) => {
+      if (x.status === 'fulfilled') ok[x.value[0]] = x.value[1];
+      else catalogueBad.push(names[i] + ' : ' + ((x.reason && x.reason.message) || 'erreur'));
     });
     FICHES = ok;
-    if (catalogueBad.length) console.error('fiches.json : entrées ignorées', catalogueBad);
-  } catch (e) { console.error('fiches.json', e); catalogueFailed = true; }
+    if (catalogueBad.length) console.error('fiches/ : fiches ignorées', catalogueBad);
+  } catch (e) { console.error('fiches/index.json', e); catalogueFailed = true; }
 }
 let catalogueReady = loadCatalogue();
 
 const ficheNc = (m, f) => m.criteria.filter(c => (f.answers || {})[c.id] === 'NC').length;
+
+/* Fiches demandées par une demande d'intervention : la demande ne porte que la liste des modèles
+   (r.fichesRequises). La fiche remplie est rattachée à la demande par requestId, ce qui permet
+   d'en déduire l'état : à remplir, en cours, remplie. */
+const reqFiches = r => Array.isArray(r && r.fichesRequises) ? r.fichesRequises : [];
+function reqFicheState(p, r, id) {
+  const fl = (p.fiches || []).filter(f => f.requestId === r.id && f.model === id);
+  const f = fl.find(x => x.status === 'validee') || fl[0] || null;
+  return { f, state: !f ? 'todo' : f.status === 'validee' ? 'done' : 'wip' };
+}
+const REQ_FICHE_LABEL = { todo: ['À remplir', 'st-ouverte'], wip: ['En cours', 'st-encours'], done: ['Remplie', 'st-valide'] };
+const ficheName = id => (FICHES[id] && FICHES[id].title) || id;
+function missingFiches(p, requestId) {
+  const q = requestId ? p.requests.find(x => x.id === requestId) : null;
+  return q ? reqFiches(q).filter(id => reqFicheState(p, q, id).state !== 'done') : [];
+}
+/* Rappel (non bloquant) avant d'envoyer un compte rendu dont la demande réclame une fiche non remplie. */
+async function confirmMissingFiches(p, requestId) {
+  const miss = missingFiches(p, requestId);
+  if (!miss.length) return true;
+  return confirmDialog({
+    title: 'Fiche de contrôle à remplir',
+    message: `La demande liée réclame ${plural(miss.length, 'fiche')} de contrôle non remplie${miss.length > 1 ? 's' : ''} : ${miss.map(id => esc(ficheName(id))).join(', ')}. Envoyer le compte rendu quand même ?`,
+    confirm: 'Envoyer quand même', danger: false, icon: 'alert'
+  });
+}
+/* Bloc affiché dans la demande (consultation) : fiches demandées et leur état. */
+function requestFichesBlock(p, r) {
+  const req = reqFiches(r);
+  const extra = (p.fiches || []).filter(f => f.requestId === r.id && !req.includes(f.model));
+  if (!req.length && !extra.length) return '';
+  const body = (id, st) => {
+    const m = FICHES[id], lab = REQ_FICHE_LABEL[st.state], nc = st.f && m ? ficheNc(m, st.f) : 0;
+    return `${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(id)}${st.f ? ' \u2014 ' + fmtDate(st.f.date) : ''}</small>
+      <span class="fq-pills">${nc ? `<span class="pill pr-haute">${nc} NC</span>` : ''}<span class="pill ${lab[1]}">${lab[0]}</span></span></span>`;
+  };
+  const row = id => { const st = reqFicheState(p, r, id);
+    return st.f ? `<button type="button" class="linked-row" data-fq="${st.f.id}">${body(id, st)}</button>`
+                : `<div class="linked-row" style="cursor:default">${body(id, st)}</div>`; };
+  const extraRow = f => `<button type="button" class="linked-row" data-fq="${f.id}">${body(f.model, { f, state: f.status === 'validee' ? 'done' : 'wip' })}</button>`;
+  return `<div class="flabel mt">Fiches de contrôle demandées</div>
+    <div class="linked">${req.map(row).join('')}${extra.map(extraRow).join('')}</div>
+    ${req.some(id => reqFicheState(p, r, id).state === 'todo') ? '<p class="hint mt-xs">À renseigner par le conducteur de travaux, depuis son compte rendu.</p>' : ''}`;
+}
 
 /* Résumé d'une fiche pour le compte rendu envoyé par e-mail. */
 function fichesSummary(p, r) {
@@ -2659,7 +2779,7 @@ async function newFiche(p, ctx) {
   /* Le choix de la fiche s'affiche toujours, même avec un seul modèle. */
   await catalogueReady;
   const ids = Object.keys(FICHES);
-  const warn = catalogueBad.length ? `<div class="notice warn">${ic('alert', 16)}<span>${plural(catalogueBad.length, 'fiche ignorée', 'fiches ignorées')} (erreur dans fiches.json) : ${esc(catalogueBad.join(' ; '))}</span></div>` : '';
+  const warn = catalogueBad.length ? `<div class="notice warn">${ic('alert', 16)}<span>${plural(catalogueBad.length, 'fiche ignorée', 'fiches ignorées')} (dossier fiches/) : ${esc(catalogueBad.join(' ; '))}</span></div>` : '';
   if (!ids.length) {
     openSheet({
       title: 'Choisir une fiche',
