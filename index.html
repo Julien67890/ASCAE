@@ -617,7 +617,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v53'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v54'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1747,7 +1747,7 @@ function reportForm(p, r, opts) {
       ${openReqs.length ? `<div class="field"><label for="cr-rq">Demande d'intervention liée</label>
         <select id="cr-rq" name="requestId"><option value="">Aucune</option>${openReqs.map(q =>
           `<option value="${q.id}" ${q.id === (d.requestId || '') ? 'selected' : ''}>${esc(q.title)} — ${REQ_STATUS[q.status].l.toLowerCase()}</option>`).join('')}</select>
-        <label class="check mt-xs" id="cr-done-wrap" ${d.requestId ? '' : 'hidden'}><input type="checkbox" id="cr-done" checked><span>Clore la demande à la validation</span></label></div>` : ''}
+        <label class="check mt-xs" id="cr-done-wrap" ${d.requestId ? '' : 'hidden'}><input type="checkbox" id="cr-done" ${d.closeRequest === false ? '' : 'checked'}><span>Clore la demande à la validation</span></label></div>` : ''}
       ${meName() ? `<div class="byline"><span>Rédigé par <b>${esc(d.author || meName())}</b></span><button type="button" class="linklike" id="cr-who">Ce n'est pas moi</button></div>`
         : `<div class="field"><label for="cr-a">Rédigé par</label><input id="cr-a" name="author" value="" placeholder="Votre nom, mémorisé pour les prochains comptes rendus"></div>`}
       <div class="field"><label for="cr-wk">Travaux réalisés</label><textarea id="cr-wk" name="works" rows="4" placeholder="Ce qui a été fait depuis la dernière visite">${esc(d.works)}</textarea></div>
@@ -1833,8 +1833,10 @@ function reportForm(p, r, opts) {
         rep.progressAt = progress(p);
         rep.stepsSnapshot = p.steps.map(s => ({ name: s.name, progress: s.progress || 0 }));
         if (send) rep.sentAt = Date.now();
-        /* Un compte rendu validé clôt la demande qu'il traite, si demandé. */
+        /* Un compte rendu validé clôt la demande qu'il traite, si demandé. Le choix est mémorisé dans le
+           compte rendu : un brouillon peut être validé plus tard depuis l'écran de lecture. */
         const doneBox = $('#cr-done', sh);
+        rep.closeRequest = doneBox ? doneBox.checked : true;
         if (send && data.requestId && (!doneBox || doneBox.checked)) {
           const q = p.requests.find(x => x.id === data.requestId);
           if (q && q.status !== 'terminee') { q.status = 'terminee'; q.doneAt = Date.now(); rep.closedRequest = true; }
@@ -2107,7 +2109,16 @@ function viewReport(p, r) {
     onMount(sh) {
       bindFiches(sh, p, { reportId: r.id, requestId: r.requestId || '', back: () => viewReport(p, r) });
       $('#cv-edit', sh).onclick = () => { closeSheet(); reportForm(p, r); };
-      $('#cv-mail', sh).onclick = async () => { if (!await confirmMissingFiches(p, r.requestId)) return; r.status = 'valide'; r.sentAt = Date.now(); touch(p); closeSheet(); rerender(); mailSheet(reportMail(p, r)); };
+      $('#cv-mail', sh).onclick = async () => {
+        if (!await confirmMissingFiches(p, r.requestId)) return;
+        const first = r.status !== 'valide';
+        r.status = 'valide'; r.sentAt = Date.now();
+        /* Première validation seulement : un simple renvoi ne referme pas une demande rouverte entre-temps. */
+        const q = linkedRequest(p, r);
+        if (first && q && r.closeRequest !== false && q.status !== 'terminee') { q.status = 'terminee'; q.doneAt = Date.now(); r.closedRequest = true; }
+        if (first) logFeed(p, 'report', 'Compte rendu diffusé : ' + (r.title || fmtDate(r.date)) + (r.closedRequest ? ' \u2014 demande close' : ''));
+        touch(p); closeSheet(); toast(r.closedRequest && first ? 'Compte rendu validé, demande close' : 'Compte rendu validé'); rerender(); mailSheet(reportMail(p, r));
+      };
       $('#cv-del', sh).onclick = async () => {
         if (await confirmDialog({ title: 'Supprimer le compte rendu ?', message: `Le compte rendu du ${fmtDate(r.date)} sera définitivement supprimé.`, confirm: 'Supprimer' })) {
           p.reports = p.reports.filter(x => x !== r); touch(p); closeSheet(); toast('Compte rendu supprimé'); rerender();
