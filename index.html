@@ -544,6 +544,7 @@ td .avatars{margin-left:0}
 .rf-picker{margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
 .rf-picker .search{margin:0 0 10px}
 .linked-row .btn-sm{flex:none}
+.linked-row .fq-go{flex:none;font-size:13px;font-weight:700;color:var(--info);padding-left:4px}
 .linked{grid-template-columns:minmax(0,1fr)}
 .linked-row.wrap b{white-space:normal;overflow:visible;text-overflow:clip}
 .sheet.fiche-sheet .sheet-foot .btn{flex:1 1 84px;padding-left:8px;padding-right:8px}
@@ -616,7 +617,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v51'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v53'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1671,6 +1672,11 @@ function viewRequest(p, r) {
         if (rep2) { closeSheet(); viewReport(p, rep2); }
       });
       bindFiches(sh, p, { requestId: r.id, back: () => viewRequest(p, r) });
+      $$('[data-fqcr]', sh).forEach(b => b.onclick = () => $('#rq-cr', sh).click());
+      $$('[data-fqrep]', sh).forEach(b => b.onclick = () => {
+        const rep2 = p.reports.find(x => x.id === b.dataset.fqrep);
+        if (rep2) { closeSheet(); viewReport(p, rep2); }
+      });
       $('#rq-edit', sh).onclick = () => { closeSheet(); requestForm(p, r); };
       $('#rq-mail', sh).onclick = () => { closeSheet(); mailSheet(requestMail(p, r)); };
       $('#rq-del', sh).onclick = async () => {
@@ -2734,13 +2740,21 @@ function requestFichesBlock(p, r) {
     return `${ic(st.state === 'done' ? 'check' : 'doc', 16)}<span><b>${esc(ficheName(id))}</b><small>${esc(ficheRef(id))}${st.f ? ' \u2014 ' + fmtDate(st.f.date) : ''}</small>
       <span class="fq-pills">${nc ? `<span class="pill pr-haute">${nc} NC</span>` : ''}<span class="pill ${lab[1]}">${lab[0]}</span></span></span>`;
   };
-  const row = id => { const st = reqFicheState(p, r, id);
-    return st.f ? `<button type="button" class="linked-row" data-fq="${st.f.id}">${body(id, st)}</button>`
-                : `<div class="linked-row" style="cursor:default">${body(id, st)}</div>`; };
-  const extraRow = f => `<button type="button" class="linked-row" data-fq="${f.id}">${body(f.model, { f, state: f.status === 'validee' ? 'done' : 'wip' })}</button>`;
+  /* Toucher une fiche ouvre le compte rendu, comme le bouton « Rédiger un compte rendu » : la fiche se renseigne
+     depuis le compte rendu. Fiche déjà rattachée à un compte rendu : on ouvre celui-ci. Cas ancien d'une fiche
+     remplie directement depuis la demande (sans compte rendu) : on ouvre la fiche elle-même. */
+  const go = label => `<span class="fq-go">${label}</span>`;
+  const open = (id, f, st) => {
+    const rep = f && f.reportId && p.reports.find(x => x.id === f.reportId);
+    if (rep) return `<button type="button" class="linked-row wrap" data-fqrep="${esc(rep.id)}">${body(id, st)}${go('Compte rendu')}</button>`;
+    if (f) return `<button type="button" class="linked-row wrap" data-fq="${f.id}">${body(id, st)}${go(st.state === 'wip' ? 'Reprendre' : 'Ouvrir')}</button>`;
+    return `<button type="button" class="linked-row wrap" data-fqcr="1">${body(id, st)}${go('Compte rendu')}</button>`;
+  };
+  const row = id => { const st = reqFicheState(p, r, id); return open(id, st.f, st); };
+  const extraRow = f => open(f.model, f, { f, state: f.status === 'validee' ? 'done' : 'wip' });
   return `<div class="flabel mt">Fiches de contrôle demandées</div>
     <div class="linked">${req.map(row).join('')}${extra.map(extraRow).join('')}</div>
-    ${req.some(id => reqFicheState(p, r, id).state === 'todo') ? '<p class="hint mt-xs">À renseigner par le conducteur de travaux, depuis son compte rendu.</p>' : ''}`;
+    ${req.some(id => reqFicheState(p, r, id).state === 'todo') ? '<p class="hint mt-xs">Les fiches se renseignent depuis le compte rendu : touchez une fiche ou « Rédiger un compte rendu ».</p>' : ''}`;
 }
 
 /* Résumé d'une fiche pour le compte rendu envoyé par e-mail. */
@@ -2755,7 +2769,7 @@ function fichesSummary(p, r) {
 
 /* Bloc affiché dans une demande ou un compte rendu. */
 function fichesBlock(p, ctx) {
-  const list = (p.fiches || []).filter(f => ctx.reportId ? f.reportId === ctx.reportId : f.requestId === ctx.requestId)
+  const list = (p.fiches || []).filter(f => ctx.reportId ? (f.reportId === ctx.reportId || (ctx.readOnly && !f.reportId && ctx.requestId && f.requestId === ctx.requestId)) : f.requestId === ctx.requestId)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const rows = f => {
     const m = FICHES[f.model], nc = m ? ficheNc(m, f) : 0, ok = f.status === 'validee';
