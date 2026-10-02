@@ -1,5 +1,5 @@
-const CACHE = 'ascae-ci-v44';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png'];
+const CACHE = 'ascae-ci-v46';
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png', './fiches.json'];
 /* cache:'reload' / 'no-cache' : on contourne le cache HTTP du navigateur et de l'hébergeur
    (GitHub Pages garde les fichiers 10 minutes), sinon une ancienne version peut ressortir. */
 self.addEventListener('install', e => {
