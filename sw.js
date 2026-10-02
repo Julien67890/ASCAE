@@ -1,4 +1,4 @@
-const CACHE = 'ascae-ci-v50';
+const CACHE = 'ascae-ci-v51';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png'];
 /* cache:'reload' / 'no-cache' : on contourne le cache HTTP du navigateur et de l'hébergeur
    (GitHub Pages garde les fichiers 10 minutes), sinon une ancienne version peut ressortir. */
@@ -11,9 +11,9 @@ self.addEventListener('install', e => {
       const r = await fetch(new Request('./fiches/index.json', { cache: 'reload' }));
       if (!r.ok) return;
       await c.put('./fiches/index.json', r.clone());
-      const names = ((await r.json()).fiches || []).map(String).filter(n => /^[\w.\-]+\.json$/.test(n));
-      await Promise.all(names.map(n => fetch(new Request('./fiches/' + n, { cache: 'reload' }))
-        .then(x => x.ok ? c.put('./fiches/' + n, x) : null).catch(() => null)));
+      const names = ((await r.json()).fiches || []).map(String).filter(n => /^[^\\/:*?"<>|\x00-\x1f]+\.json$/.test(n) && !n.startsWith('.'));
+      await Promise.all(names.map(n => fetch(new Request('./fiches/' + encodeURIComponent(n), { cache: 'reload' }))
+        .then(x => x.ok ? c.put('./fiches/' + encodeURIComponent(n), x) : null).catch(() => null)));
     } catch (err) { /* hors ligne ou liste absente : les fiches seront mises en cache à la première utilisation */ }
   }));
   self.skipWaiting();
