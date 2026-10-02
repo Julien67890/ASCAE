@@ -470,6 +470,78 @@ td .avatars{margin-left:0}
 .recip-row input{flex:none;width:18px;height:18px;accent-color:var(--accent-ink)}
 .recip-row span{font-weight:650;font-size:13.5px}
 .recip-row small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:right}
+
+/* ---------- fiches de contrôle ---------- */
+/* La fiche reste en thème clair, quel que soit le thème choisi dans l'application :
+   les variables sont redéfinies sur la feuille elle-même. */
+.sheet.fiche-sheet{
+  color-scheme:light;
+  --bg:#ECEEF0; --surface:#FFFFFF; --surface-2:#F3F5F7; --text:#1B2632; --muted:#5E6B79; --border:#DADFE4;
+  --primary:#1E2B3A; --primary-ink:#FFFFFF; --accent:#FFC21A; --accent-ink:#1E2B3A;
+  --success:#2E9E6A; --danger:#D2453B; --info:#2F6FC4; --warning:#B87900;
+  --success-bg:#E3F4EC; --danger-bg:#FBE7E5; --info-bg:#E5EEFA; --warn-bg:#FFF4D6;
+  --focus:rgba(47,111,196,.28); --ok-ink:#17714A; --bad-ink:#B02E24;
+  color:var(--text);
+}
+.notice.bad{background:var(--danger-bg)}
+.notice.bad .ic{color:var(--danger)}
+.fq-head{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-bottom:14px}
+.fq-ref{font-weight:800;font-stretch:80%;font-size:15px;background:var(--primary);color:var(--primary-ink);border-radius:6px;padding:2px 9px}
+.fq-ver{font-size:12.5px;color:var(--muted)}
+.fq-h{font-size:15px;font-stretch:88%;font-weight:750;margin:22px 0 8px;padding-left:10px;border-left:3px solid var(--accent)}
+.fq-docs{margin:0 0 6px}
+.fq-mode{border:1px solid var(--border);border-radius:9px;background:var(--surface-2);margin-bottom:4px}
+.fq-mode summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:0 14px;cursor:pointer;list-style:none;font-weight:700;font-size:14.5px}
+.fq-mode summary::-webkit-details-marker{display:none}
+.fq-mode summary::after{content:'Afficher';font-size:12.5px;font-weight:650;color:var(--info)}
+.fq-mode[open] summary::after{content:'Masquer'}
+.fq-mode-body{padding:0 14px 14px;font-size:14px}
+.fq-mode-body h4{font-size:13.5px;margin:10px 0 4px}
+.fq-mode-body ul{padding-left:18px}
+.fq-mode-body li{margin:2px 0}
+.fq-rule{margin-top:12px;padding:9px 12px;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 8px 8px 0;font-weight:650}
+.fq-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 6px}
+.fq-tools .hint{margin-left:auto}
+.fq{padding:12px 0;border-top:1px solid var(--border)}
+.fq-q{display:flex;gap:8px;justify-content:space-between;align-items:flex-start;font-weight:650;margin-bottom:8px}
+.fq-tag{font-style:normal;font-size:11.5px;font-weight:700;color:var(--muted);background:var(--surface-2);border-radius:6px;padding:1px 7px;flex:none}
+.fq-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.fq-opts label{position:relative;display:block}
+.fq-opts input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+.fq-opts span{display:flex;align-items:center;justify-content:center;text-align:center;min-height:52px;padding:4px 6px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface-2);font-weight:650;font-size:14px;line-height:1.15;color:var(--muted)}
+.fq-opts input:focus-visible+span{outline:3px solid var(--focus);outline-offset:1px}
+.fq-opts input:checked+span::before{content:'\2713';margin-right:6px;font-weight:800}
+.fq-opts .o-c input:checked+span{background:var(--success-bg);border-color:var(--success);color:var(--ok-ink)}
+.fq-opts .o-nc input:checked+span{background:var(--danger-bg);border-color:var(--danger);color:var(--bad-ink)}
+.fq-opts .o-pr input:checked+span{background:var(--surface);border-color:var(--primary);color:var(--text)}
+@media(min-width:720px){
+  .fq{display:grid;grid-template-columns:1fr 330px;gap:14px;align-items:center}
+  .fq-q{margin:0}
+}
+.fq-ph{padding:12px 0;border-top:1px solid var(--border)}
+.fq-ph:first-child{border-top:0;padding-top:2px}
+.fq-ph-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fq-ph-head b{font-weight:650;font-size:14.5px}
+.fq-ph-btns{display:flex;gap:6px}
+.fq-add{position:relative;cursor:pointer}
+.fq-add input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.fq-add:focus-within{outline:3px solid var(--focus);outline-offset:2px}
+.fq-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.fq-thumbs:not(:empty){margin-top:10px}
+.fq-thumbs figure{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--surface-2);display:grid;place-items:center;color:var(--muted)}
+.fq-thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.fq-thumbs .fq-del{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:50%;background:rgba(27,38,50,.72);color:#fff;display:grid;place-items:center}
+.fq-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.fq-stat{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px}
+.fq-stat .k{display:block;font-size:12.5px;font-weight:650;color:var(--muted)}
+.fq-stat b{display:block;font-size:28px;font-weight:800;font-stretch:80%;font-variant-numeric:tabular-nums;line-height:1.15}
+.fq-stat.bad b{color:var(--bad-ink)}
+.fq-stat input{margin-top:2px}
+.fq-dec{display:grid;gap:8px;margin-bottom:6px}
+.fq-dec .check{margin:0}
+.fq-hint{min-height:1.3em;margin:4px 0 14px}
+.fq-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.sheet.fiche-sheet .sheet-foot .btn{flex:1 1 84px;padding-left:8px;padding-right:8px}
 </style>
 </head>
 <body>
@@ -515,7 +587,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, setDoc, deleteDoc, onSnapshot, query, where
+  collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -576,7 +648,7 @@ function normalize(d) {
   d.settings.names = d.settings.names || {};
   d.projects.forEach(p => {
     p.users = p.users || []; p.steps = p.steps || []; p.contacts = p.contacts || [];
-    p.requests = p.requests || []; p.reports = p.reports || []; p.feed = p.feed || [];
+    p.requests = p.requests || []; p.reports = p.reports || []; p.feed = p.feed || []; p.fiches = p.fiches || [];
     p.links = p.links || {};
     ['plans', 'photos', 'planning'].forEach(k => { p.links[k] = p.links[k] || []; });
   });
@@ -1537,6 +1609,7 @@ function viewRequest(p, r) {
               <span class="pill ${x.status === 'valide' ? 'st-valide' : 'st-brouillon'}">${x.status === 'valide' ? 'Validé' : 'Brouillon'}</span></button>`).join('')}</div>`
           : `<p class="hint">Aucun compte rendu rattaché à cette demande.</p>`;
       })()}
+      ${fichesBlock(p, { requestId: r.id })}
       <button type="button" class="btn btn-ghost btn-block mt" id="rq-cr">${ic('plus', 17)} Rédiger un compte rendu</button>`,
     foot: `<button class="btn btn-ghost btn-icon danger" id="rq-del" aria-label="Supprimer la demande">${ic('trash', 18)}</button><button class="btn btn-ghost" id="rq-edit">${ic('edit', 17)} Modifier</button><button class="btn btn-primary" id="rq-mail">${ic('mail', 17)} Envoyer</button>`,
     onMount(sh) {
@@ -1555,6 +1628,7 @@ function viewRequest(p, r) {
         const rep2 = p.reports.find(x => x.id === b.dataset.cr);
         if (rep2) { closeSheet(); viewReport(p, rep2); }
       });
+      bindFiches(sh, p, { requestId: r.id, back: () => viewRequest(p, r) });
       $('#rq-edit', sh).onclick = () => { closeSheet(); requestForm(p, r); };
       $('#rq-mail', sh).onclick = () => { closeSheet(); mailSheet(requestMail(p, r)); };
       $('#rq-del', sh).onclick = async () => {
@@ -1636,6 +1710,7 @@ function reportForm(p, r, opts) {
       <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
       <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
       <div class="field"><label for="cr-cm">Commentaire</label><textarea id="cr-cm" name="comment" rows="3" placeholder="Tout ce qui mérite d'être signalé sans entrer dans les catégories ci-dessus">${esc(d.comment || '')}</textarea></div>
+      <p class="hint mt-xs" style="margin-bottom:14px">Fiches de contrôle : enregistrez le brouillon, puis ouvrez le compte rendu pour en ajouter.</p>
       ${p.steps.length ? `<div class="field"><div class="flabel-row"><label>Avancement des étapes</label>
           <button type="button" class="mini" id="cr-unlock" aria-label="Modifier l'avancement">${ic('edit', 17)}</button></div>
         <div class="cr-steps locked" id="cr-steps">${p.steps.map(s => `<div><div class="cr-step-head"><span>${esc(s.name)}</span><b data-out="${s.id}">${s.progress || 0}%</b></div><input type="range" min="0" max="100" step="5" data-step="${s.id}" value="${s.progress || 0}" aria-label="Avancement ${esc(s.name)}" disabled></div>`).join('')}</div>
@@ -1773,6 +1848,7 @@ function reportMail(p, r) {
   sec('Observations et réserves', r.observations);
   sec('Actions à prévoir', r.actions);
   sec('Commentaire', r.comment);
+  sec('Fiches de contrôle', fichesSummary(p, r).join('\n'));
 
   if (snap.length) {
     L.push('', RULE, 'AVANCEMENT DES ÉTAPES', '');
@@ -1891,6 +1967,7 @@ function reportHtml(p, r) {
       ${sec('Observations et réserves', r.observations)}
       ${sec('Actions à prévoir', r.actions)}
       ${sec('Commentaire', r.comment)}
+      ${sec('Fiches de contrôle', fichesSummary(p, r).join('\n'))}
       ${steps}
 
       <tr><td style="padding:24px 24px 0">
@@ -1935,9 +2012,11 @@ function viewReport(p, r) {
         <div><dt>Dernière diffusion</dt><dd>${r.sentAt ? fmtDate(r.sentAt) : 'Pas encore envoyé'}</dd></div>
       </dl>
       ${sec('Travaux réalisés', r.works)}${sec('Observations et réserves', r.observations)}${sec('Actions à prévoir', r.actions)}${sec('Commentaire', r.comment)}
+      <div class="rv-sec">${fichesBlock(p, { reportId: r.id, requestId: r.requestId || '' })}</div>
       ${snap.length ? `<div class="rv-sec"><h4>Avancement des étapes</h4><div class="rv-steps">${snap.map(s => `<div class="rv-step"><span>${esc(s.name)}</span>${cellsHTML(s.progress)}<b>${s.progress}%</b></div>`).join('')}</div></div>` : ''}`,
     foot: `<button class="btn btn-ghost btn-icon danger" id="cv-del" aria-label="Supprimer le compte rendu">${ic('trash', 18)}</button><button class="btn btn-ghost" id="cv-edit">${ic('edit', 17)} Modifier</button><button class="btn btn-primary" id="cv-mail">${ic('send', 17)} ${sent ? 'Renvoyer' : 'Valider et envoyer'}</button>`,
     onMount(sh) {
+      bindFiches(sh, p, { reportId: r.id, requestId: r.requestId || '', back: () => viewReport(p, r) });
       $('#cv-edit', sh).onclick = () => { closeSheet(); reportForm(p, r); };
       $('#cv-mail', sh).onclick = () => { r.status = 'valide'; r.sentAt = Date.now(); touch(p); closeSheet(); rerender(); mailSheet(reportMail(p, r)); };
       $('#cv-del', sh).onclick = async () => {
@@ -2463,6 +2542,469 @@ function settingsSheet() {
       };
     }
   });
+}
+
+/* =========================================================
+   Fiches de contrôle
+   Un modèle (FICHES) décrit la fiche : l'écran et le PDF en sont tirés.
+   Les réponses sont rangées dans le projet (p.fiches), les photos dans la
+   collection Firestore « fichePhotos » pour ne pas alourdir le document projet.
+   ========================================================= */
+/* Dossier SharePoint où déposer les PDF. */
+const FICHES_DIR_URL = 'https://apexenergies-my.sharepoint.com/:f:/r/personal/j_guionie_apexenergies_fr/Documents/ASCAE%20database/Fiches%20controle%20ASCAE?d=w70858dec9db7407488c37a537f57b1b8&csf=1&web=1';
+const FICHE_PHOTOS = collection(fbDb, 'fichePhotos');
+const ANS = { C: 'Conforme', NC: 'Non conforme', PR: 'Pas réalisé' };
+const DECISIONS = { conforme: 'Conforme', reserves: 'Conforme avec réserves', nonconforme: 'Non conforme' };
+
+const FICHES = {
+  'PR-26_FO36': {
+    ref: 'PR-26_FO36', version: '16/09/26', title: 'Fiche de contrôle Fondations', short: 'Fondations',
+    modeTitle: 'Inspection des fondations',
+    mode: [
+      'Marquage du plan de masse avec la position des non-conformités',
+      'Vérification de la position des ancrages',
+      'Mesure de la profondeur d\u2019ancrage et taille des fondations',
+      'Mesure des ferraillages',
+      'Vérification du béton utilisé',
+      'Inspections des reprises faites sur site',
+      'Inspection des mesures de protections'
+    ],
+    sampling: ['Si inférieur à 500 kWc : toutes les fondations', 'Entre 500 kWc et 1 MWc : la moitié des fondations', 'Si supérieur à 1 MWc : 30 % des fondations'],
+    rule: 'Seuil d\u2019alerte = 1 fondation non conforme',
+    inspection: 'Inspection visuelle et mesures des fondations',
+    docs: 'étude de sol, étude béton, plan d\u2019ancrage, plan d\u2019implantation, PGC, PPSPS',
+    criteria: [
+      { id: 'position', label: 'Position des fondations', crit: 'Critique' },
+      { id: 'profondeur', label: 'Profondeur d\u2019ancrage', crit: 'Critique' },
+      { id: 'taille', label: 'Taille des fondations', crit: 'Critique' },
+      { id: 'beton', label: 'Type de béton utilisé', crit: 'Critique' },
+      { id: 'ferr_pres', label: 'Présence des ferraillages', crit: 'Critique' },
+      { id: 'ferr_taille', label: 'Taille des ferraillages', crit: 'Critique' },
+      { id: 'platines', label: 'Présence des platines', crit: 'Critique' },
+      { id: 'protections', label: 'Présence des protections sur fondations réalisées en accord avec PGC', crit: 'Critique' }
+    ],
+    photos: [
+      ['reprises', 'Reprises faites sur site'],
+      ['ferraillage', 'Échantillon de ferraillage avec mesure'],
+      ['profondeur', 'Échantillon de profondeur avec mesure'],
+      ['interface', 'Échantillon d\u2019interface platines / ferraillages'],
+      ['taille', 'Échantillon de taille de fondation avec mesure'],
+      ['protection', 'Échantillon de mesure de protection']
+    ]
+  }
+};
+
+const ficheNc = (m, f) => m.criteria.filter(c => (f.answers || {})[c.id] === 'NC').length;
+
+/* Résumé d'une fiche pour le compte rendu envoyé par e-mail. */
+function fichesSummary(p, r) {
+  return (p.fiches || []).filter(f => f.reportId === r.id).map(f => {
+    const m = FICHES[f.model], nc = m ? ficheNc(m, f) : 0;
+    return (m ? m.ref + ' - ' + m.title : f.model) + ' : '
+      + (f.status === 'validee' ? (DECISIONS[f.decision] || 'validée') : 'brouillon')
+      + (nc ? ` (${nc} critère${nc > 1 ? 's' : ''} non conforme${nc > 1 ? 's' : ''})` : '');
+  });
+}
+
+/* Bloc affiché dans une demande ou un compte rendu. */
+function fichesBlock(p, ctx) {
+  const list = (p.fiches || []).filter(f => ctx.reportId ? f.reportId === ctx.reportId : f.requestId === ctx.requestId)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return `<div class="flabel mt">Fiches de contrôle</div>
+    ${list.length ? `<div class="linked">${list.map(f => {
+      const m = FICHES[f.model], nc = m ? ficheNc(m, f) : 0, ok = f.status === 'validee';
+      return `<button type="button" class="linked-row" data-fq="${f.id}">${ic('check', 16)}
+        <span><b>${esc(m ? m.title : f.model)}</b><small>${fmtDate(f.date)}${f.author ? ' \u2014 ' + esc(f.author) : ''}</small>
+          <span class="fq-pills">${nc ? `<span class="pill pr-haute">${nc} NC</span>` : ''}<span class="pill ${ok ? 'st-valide' : 'st-brouillon'}">${ok ? 'Validée' : 'Brouillon'}</span></span></span></button>`;
+    }).join('')}</div>` : '<p class="hint">Aucune fiche de contrôle rattachée.</p>'}
+    <button type="button" class="btn btn-ghost btn-block mt-xs" data-fq-new>${ic('plus', 17)} Ajouter une fiche de contrôle</button>
+    <p class="hint mt-xs">PDF à déposer dans le <a class="linklike" href="${esc(FICHES_DIR_URL)}" target="_blank" rel="noopener">dossier SharePoint des fiches</a>.</p>`;
+}
+function bindFiches(sh, p, ctx) {
+  $$('[data-fq]', sh).forEach(b => b.onclick = () => {
+    const f = p.fiches.find(x => x.id === b.dataset.fq);
+    if (f) { closeSheet(); ficheForm(p, f, ctx); }
+  });
+  const nb = $('[data-fq-new]', sh);
+  if (nb) nb.onclick = () => { closeSheet(); newFiche(p, ctx); };
+}
+function newFiche(p, ctx) {
+  const ids = Object.keys(FICHES);
+  if (ids.length === 1) return ficheForm(p, null, ctx, ids[0]);
+  openSheet({
+    title: 'Choisir une fiche',
+    body: `<div class="linked">${ids.map(id => `<button type="button" class="linked-row" data-m="${id}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)}</small></span></button>`).join('')}</div>`,
+    onMount(sh) { $$('[data-m]', sh).forEach(b => b.onclick = () => { closeSheet(); ficheForm(p, null, ctx, b.dataset.m); }); }
+  });
+}
+
+/* Réduit une photo avant stockage : environ 150 à 300 Ko au lieu de plusieurs Mo. */
+function compressImage(file, max = 1280, q = 0.72) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let data = c.toDataURL('image/jpeg', q);
+      if (data.length > 700000) data = c.toDataURL('image/jpeg', 0.5);
+      res({ data, w, h });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image')); };
+    img.src = url;
+  });
+}
+async function loadFichePhotos(f) {
+  const out = {};
+  const snap = await getDocs(query(FICHE_PHOTOS, where('ficheId', '==', f.id)));
+  snap.forEach(d => { out[d.id] = d.data().data; });
+  return out;
+}
+
+function ficheForm(p, f, ctx, modelId) {
+  ctx = ctx || {};
+  const isNew = !f;
+  const m = FICHES[isNew ? modelId : f.model];
+  if (!m) { toast('Modèle de fiche introuvable'); return; }
+  const d = isNew
+    ? { refChantier: p.name || '', date: today(), answers: {}, photos: {}, ncClosed: 0, decision: '', validator: { name: meName(), date: today() }, status: 'brouillon' }
+    : JSON.parse(JSON.stringify(f));
+  d.answers = d.answers || {}; d.photos = d.photos || {}; d.validator = d.validator || { name: meName(), date: today() };
+  const ph = {}; m.photos.forEach(([c]) => { ph[c] = (d.photos[c] || []).slice(); });
+  const photoSrc = {}, fresh = {}, removed = new Set();
+  let photosReady = Promise.resolve();
+
+  const crit = m.criteria.map(c => `<div class="fq" data-c="${c.id}">
+      <div class="fq-q"><span>${esc(c.label)}</span><i class="fq-tag">${esc(c.crit || 'Critique')}</i></div>
+      <div class="fq-opts" role="radiogroup" aria-label="${esc(c.label)}">
+        ${[['C', 'o-c'], ['NC', 'o-nc'], ['PR', 'o-pr']].map(([v, k]) =>
+          `<label class="${k}"><input type="radio" name="a_${c.id}" value="${v}" ${d.answers[c.id] === v ? 'checked' : ''}><span>${ANS[v]}</span></label>`).join('')}
+      </div></div>`).join('');
+  const photoBlocks = m.photos.map(([cat, label]) => `<div class="fq-ph">
+      <div class="fq-ph-head"><div><b>${esc(label)}</b><div class="hint" data-ph-count="${cat}"></div></div>
+        <div class="fq-ph-btns">
+          <label class="btn btn-ghost btn-sm fq-add">${ic('image', 16)} Photo<input type="file" accept="image/*" capture="environment" data-cat="${cat}"></label>
+          <label class="btn btn-ghost btn-sm fq-add">${ic('upload', 16)} Galerie<input type="file" accept="image/*" multiple data-cat="${cat}"></label>
+        </div></div>
+      <div class="fq-thumbs" data-ph-box="${cat}"></div></div>`).join('');
+
+  openSheet({
+    title: m.title, size: 'lg fiche-sheet',
+    body: `<form id="fqf" novalidate>
+      <div class="fq-head"><span class="fq-ref">${esc(m.ref)}</span><span class="fq-ver">Mise à jour du ${esc(m.version)}</span>
+        <span class="pill ${d.status === 'validee' ? 'st-valide' : 'st-brouillon'}">${d.status === 'validee' ? 'Validée' : 'Brouillon'}</span></div>
+      <div class="grid2">
+        <div class="field"><label for="fq-ref">Réf chantier</label><input id="fq-ref" name="refChantier" value="${esc(d.refChantier)}" autocomplete="off"></div>
+        <div class="field"><label for="fq-date">Date du contrôle</label><input id="fq-date" type="date" name="date" value="${esc(d.date)}"></div>
+      </div>
+      <details class="fq-mode"><summary>Mode opératoire</summary><div class="fq-mode-body">
+        <h4>${esc(m.modeTitle)}</h4><ul>${m.mode.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        <h4>Part à contrôler selon la puissance du projet</h4><ul>${m.sampling.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        <div class="fq-rule">Règle de conformité : ${esc(m.rule)}</div></div></details>
+
+      <h3 class="fq-h">${esc(m.inspection)}</h3>
+      <p class="hint fq-docs">Documents de référence : ${esc(m.docs)}</p>
+      <div class="fq-tools">
+        <button type="button" class="btn btn-ghost btn-sm" id="fq-allok">Tout conforme</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="fq-clear">Effacer</button>
+        <span class="hint" id="fq-prog"></span>
+      </div>
+      <div class="notice bad" id="fq-alert" hidden>${ic('alert', 16)}<span id="fq-alert-t"></span></div>
+      <div>${crit}</div>
+
+      <h3 class="fq-h">Photos à annexer à cette fiche</h3>
+      <div>${photoBlocks}</div>
+
+      <h3 class="fq-h">Synthèse et visa</h3>
+      <div class="fq-stats">
+        <div class="fq-stat" id="fq-open-box"><span class="k">Non-conformités ouvertes</span><b id="fq-open">0</b></div>
+        <div class="fq-stat"><label class="k" for="fq-closed">Non-conformités levées</label><div class="field" style="margin:0"><input id="fq-closed" type="number" inputmode="numeric" min="0" name="ncClosed" value="${+d.ncClosed || 0}"></div></div>
+      </div>
+      <div class="flabel">Décision</div>
+      <div class="fq-dec">${Object.entries(DECISIONS).map(([k, l]) =>
+        `<label class="check"><input type="radio" name="decision" value="${k}" ${d.decision === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>
+      <p class="hint fq-hint" id="fq-hint"></p>
+      <div class="grid2">
+        <div class="field"><label for="fq-vn">Validation : nom</label><input id="fq-vn" name="vname" value="${esc(d.validator.name)}" placeholder="Nom et prénom" autocomplete="name"></div>
+        <div class="field"><label for="fq-vd">Date du visa</label><input id="fq-vd" type="date" name="vdate" value="${esc(d.validator.date)}"></div>
+      </div>
+    </form>`,
+    foot: `${isNew ? '' : `<button class="btn btn-ghost btn-icon danger" id="fq-del" aria-label="Supprimer la fiche">${ic('trash', 18)}</button>`}
+      <button class="btn btn-ghost" id="fq-pdf">${ic('download', 17)} PDF</button>
+      <button class="btn btn-ghost" id="fq-save">Enregistrer</button>
+      <button class="btn btn-primary" id="fq-ok">${ic('check', 17)} Valider</button>`,
+    onMount(sh) {
+      const f2 = $('#fqf', sh), E = f2.elements;
+      f2.onsubmit = e => e.preventDefault();
+
+      const radio = id => { const el = $(`input[name="a_${id}"]:checked`, sh); return el ? el.value : ''; };
+      const refresh = () => {
+        let done = 0, nc = 0;
+        m.criteria.forEach(c => { const v = radio(c.id); if (v) done++; if (v === 'NC') nc++; });
+        $('#fq-prog', sh).textContent = done + ' / ' + m.criteria.length + ' renseignés';
+        $('#fq-open', sh).textContent = nc;
+        $('#fq-open-box', sh).classList.toggle('bad', nc > 0);
+        const al = $('#fq-alert', sh);
+        al.hidden = nc === 0;
+        $('#fq-alert-t', sh).textContent = nc ? `Seuil d\u2019alerte atteint : ${plural(nc, 'critère')} non conforme${nc > 1 ? 's' : ''}. ` + m.rule + '.' : '';
+        $('#fq-hint', sh).textContent = done < m.criteria.length ? ''
+          : nc ? 'Suggestion : « Non conforme » ou « Conforme avec réserves » selon la gravité.' : 'Suggestion : « Conforme ».';
+      };
+      refresh();
+      sh.addEventListener('change', e => { if (e.target.matches('.fq-opts input')) refresh(); });
+      $('#fq-allok', sh).onclick = () => {
+        m.criteria.forEach(c => { const el = $(`input[name="a_${c.id}"][value="C"]`, sh); if (el) el.checked = true; });
+        sh.dispatchEvent(new Event('change')); refresh(); toast('Tout est sur « Conforme ». Corrigez les exceptions.');
+      };
+      $('#fq-clear', sh).onclick = () => {
+        m.criteria.forEach(c => $$(`input[name="a_${c.id}"]`, sh).forEach(el => { el.checked = false; }));
+        sh.dispatchEvent(new Event('change')); refresh();
+      };
+
+      /* Photos */
+      const renderPhotos = () => {
+        m.photos.forEach(([cat]) => {
+          const ids = ph[cat] || [];
+          $(`[data-ph-box="${cat}"]`, sh).innerHTML = ids.map(id => `<figure>${photoSrc[id]
+            ? `<img alt="Photo" src="${photoSrc[id]}">` : ic('image', 22)}
+            <button type="button" class="fq-del" data-del="${id}" data-cat="${cat}" aria-label="Retirer cette photo">${ic('x', 16)}</button></figure>`).join('');
+          $(`[data-ph-count="${cat}"]`, sh).textContent = ids.length ? plural(ids.length, 'photo') : 'Aucune photo';
+        });
+      };
+      renderPhotos();
+      sh.addEventListener('click', e => {
+        const b = e.target.closest('[data-del]'); if (!b) return;
+        const id = b.dataset.del, cat = b.dataset.cat;
+        ph[cat] = (ph[cat] || []).filter(x => x !== id);
+        if (fresh[id]) delete fresh[id]; else removed.add(id);
+        renderPhotos();
+      });
+      sh.addEventListener('change', async e => {
+        const inp = e.target.closest('input[type=file][data-cat]'); if (!inp) return;
+        const cat = inp.dataset.cat, files = [...inp.files]; inp.value = '';
+        for (const file of files) {
+          try {
+            const r = await compressImage(file), id = uid();
+            (ph[cat] = ph[cat] || []).push(id); photoSrc[id] = r.data; fresh[id] = { cat, data: r.data };
+          } catch (err) { toast('Photo illisible'); }
+        }
+        renderPhotos();
+      });
+      if (!isNew && Object.values(d.photos).flat().length) {
+        photosReady = loadFichePhotos(f).then(src => { Object.assign(photoSrc, src); renderPhotos(); })
+          .catch(err => { console.error(err); toast('Photos indisponibles pour le moment'); });
+      }
+
+      const collect = () => {
+        const answers = {};
+        m.criteria.forEach(c => { const v = radio(c.id); if (v) answers[c.id] = v; });
+        const dec = $('input[name="decision"]:checked', sh);
+        return {
+          refChantier: E.refChantier.value.trim(), date: E.date.value, answers,
+          ncClosed: Math.max(0, parseInt(E.ncClosed.value, 10) || 0), decision: dec ? dec.value : '',
+          validator: { name: E.vname.value.trim(), date: E.vdate.value }
+        };
+      };
+
+      const persist = valider => {
+        const data = collect();
+        if (!data.date) { E.date.classList.add('invalid'); E.date.focus(); toast('Indiquez la date du contrôle'); return null; }
+        if (valider) {
+          const manque = m.criteria.filter(c => !data.answers[c.id]);
+          if (manque.length) {
+            const el = $(`[data-c="${manque[0].id}"]`, sh); if (el) el.scrollIntoView({ block: 'center' });
+            toast(`Renseignez les ${manque.length} critère${manque.length > 1 ? 's' : ''} restant${manque.length > 1 ? 's' : ''}`); return null;
+          }
+          if (!data.decision) { toast('Choisissez la décision'); return null; }
+          if (!data.validator.name) { E.vname.classList.add('invalid'); E.vname.focus(); toast('Indiquez le nom du validateur'); return null; }
+        }
+        const rec = isNew
+          ? { id: uid(), model: m.ref, modelVersion: m.version, requestId: ctx.requestId || '', reportId: ctx.reportId || '', createdAt: Date.now(), author: meName() }
+          : f;
+        Object.assign(rec, data, {
+          photos: ph, ncOpen: m.criteria.filter(c => data.answers[c.id] === 'NC').length,
+          status: valider || rec.status === 'validee' ? 'validee' : 'brouillon', updatedAt: Date.now()
+        });
+        if (isNew) p.fiches.push(rec);
+        Object.entries(fresh).forEach(([id, x]) => {
+          setDoc(doc(FICHE_PHOTOS, id), { ficheId: rec.id, projectId: p.id, cat: x.cat, data: x.data, createdAt: Date.now() })
+            .catch(err => { console.error(err); toast('Photo refusée : ' + (err.code || 'erreur')); });
+        });
+        removed.forEach(id => deleteDoc(doc(FICHE_PHOTOS, id)).catch(err => console.error(err)));
+        if (valider) logFeed(p, 'report', `Fiche de contrôle validée : ${m.short} \u2014 ${DECISIONS[rec.decision]}` + (rec.ncOpen ? ` (${rec.ncOpen} NC)` : ''));
+        touch(p); return rec;
+      };
+
+      $('#fq-save', sh).onclick = () => {
+        const rec = persist(false); if (!rec) return;
+        closeSheet(true); toast('Fiche enregistrée'); rerender(); if (ctx.back) ctx.back();
+      };
+      $('#fq-ok', sh).onclick = async () => {
+        const rec = persist(true); if (!rec) return;
+        closeSheet(true); toast('Fiche validée'); rerender();
+        if (rec.ncOpen && await confirmDialog({
+          title: 'Prévenir l\u2019équipe ?',
+          message: `${plural(rec.ncOpen, 'critère')} non conforme${rec.ncOpen > 1 ? 's' : ''} : le seuil d'alerte est atteint. Préparer un e-mail d'alerte pour l'équipe du projet ?`,
+          confirm: 'Préparer l\u2019e-mail', danger: false, icon: 'mail'
+        })) { mailSheet(ficheMail(p, rec)); return; }
+        if (ctx.back) ctx.back();
+      };
+      $('#fq-pdf', sh).onclick = async e => {
+        const btn = e.currentTarget; btn.disabled = true;
+        try {
+          await photosReady;
+          const data = collect(), photos = {};
+          m.photos.forEach(([cat]) => { photos[cat] = (ph[cat] || []).map(id => photoSrc[id]).filter(Boolean); });
+          const lost = Object.values(ph).flat().length - Object.values(photos).flat().length;
+          const blob = await makeFichePdf(p, m, data, photos);
+          await deliverPdf(blob, `${m.ref}_${norm(p.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)}_${data.date || today()}.pdf`);
+          if (lost > 0) toast(`${plural(lost, 'photo')} non incluse${lost > 1 ? 's' : ''} (hors connexion)`);
+        } catch (err) { console.error(err); toast('PDF impossible : connexion nécessaire la première fois'); }
+        btn.disabled = false;
+      };
+      const del = $('#fq-del', sh);
+      if (del) del.onclick = async () => {
+        if (!await confirmDialog({ title: 'Supprimer la fiche ?', message: `La fiche « ${esc(m.title)} » du ${fmtDate(f.date)} sera définitivement supprimée, photos comprises.`, confirm: 'Supprimer' })) return;
+        Object.values(f.photos || {}).flat().forEach(id => deleteDoc(doc(FICHE_PHOTOS, id)).catch(err => console.error(err)));
+        p.fiches = p.fiches.filter(x => x !== f); touch(p);
+        closeSheet(true); toast('Fiche supprimée'); rerender(); if (ctx.back) ctx.back();
+      };
+    }
+  });
+}
+
+function ficheMail(p, rec) {
+  const m = FICHES[rec.model];
+  const L = ['Bonjour,', '', `La fiche « ${m.title} » (${m.ref}) vient d'être validée sur le projet « ${p.name} ».`, '',
+    `Décision : ${DECISIONS[rec.decision] || '-'}`, `Critères non conformes : ${rec.ncOpen || 0}`];
+  m.criteria.filter(c => rec.answers[c.id] === 'NC').forEach(c => L.push('  - ' + c.label));
+  L.push('', m.rule + '.', '', 'Ouvrir le projet dans ASCAE C&I :', projectUrl(p, 'suivi'), '', 'Cordialement,');
+  if (state.settings.userName || rec.author) L.push(state.settings.userName || rec.author);
+  return { to: p.users.filter(u => u.email).map(u => u.email), subject: `[${p.name}] ALERTE - ${m.short} : ${rec.ncOpen} non-conformité${rec.ncOpen > 1 ? 's' : ''}`, body: L.join('\n'), title: 'Alerter l\u2019équipe' };
+}
+
+/* ---------- PDF ---------- */
+function loadJsPdf() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = () => (window.jspdf && window.jspdf.jsPDF) ? res(window.jspdf.jsPDF) : rej(new Error('jspdf'));
+    s.onerror = () => rej(new Error('jspdf'));
+    document.head.appendChild(s);
+  });
+}
+async function deliverPdf(blob, name) {
+  /* Sur téléphone : feuille de partage (Fichiers, OneDrive, e-mail). Sinon : téléchargement. */
+  try {
+    const file = new File([blob], name, { type: 'application/pdf' });
+    if (matchMedia('(pointer:coarse)').matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: name }); return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  downloadFile(blob, name, 'application/pdf');
+}
+
+async function makeFichePdf(p, m, rec, photos) {
+  const JsPDF = await loadJsPdf();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const L = 14, R = 196, CW = R - L;
+  const BLUE = [67, 88, 122], RED = [196, 39, 28], INK = [27, 38, 50], GREY = [94, 107, 121], YEL = [255, 194, 26], LINE = [150, 158, 170];
+  const pt = s => String(s == null ? '' : s).replace(/[\u2018\u2019\u02BC]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/[\u00A0\u202F]/g, ' ');
+  const txt = (s, x, y, o) => doc.text(pt(s), x, y, o);
+  const font = (st, sz, col) => { doc.setFont('helvetica', st); doc.setFontSize(sz); doc.setTextColor(...(col || INK)); };
+  const stroke = (w = .25, col = LINE) => { doc.setLineWidth(w); doc.setDrawColor(...col); };
+  const cross = (cx, cy, s) => { stroke(.55, INK); doc.line(cx - s / 2, cy - s / 2, cx + s / 2, cy + s / 2); doc.line(cx - s / 2, cy + s / 2, cx + s / 2, cy - s / 2); };
+  const checkbox = (x, y, s, on) => { stroke(.3, INK); doc.rect(x, y, s, s, 'S'); if (on) cross(x + s / 2, y + s / 2, s * .62); };
+  let y = 42;
+  const START = 42, END = 278;
+  const need = h => { if (y + h > END) { doc.addPage(); y = START; } };
+
+  /* Page 1 : mode opératoire */
+  font('bold', 10); txt('Réf chantier : ' + (rec.refChantier || '………'), L, y); y += 9;
+  font('bold', 11, RED); txt('Mode opératoire :', L, y); y += 5.5;
+  font('bold', 9.5); txt(m.modeTitle + ' :', L, y); y += 4.8;
+  font('normal', 9); m.mode.forEach(s => { txt('-   ' + s, L + 4, y); y += 4.3; });
+  y += 2.5; font('normal', 9); txt('En fonction de la puissance du projet :', L, y); y += 4.5;
+  m.sampling.forEach(s => { txt('\u2022   ' + s, L + 5, y); y += 4.3; });
+  y += 3; font('bold', 9.5); txt('Règle de conformité', L, y); y += 5; font('normal', 9); txt(m.rule, L, y); y += 9;
+
+  /* Tableau des critères */
+  need(40);
+  font('bold', 11, RED); txt(m.inspection + ' :', L, y); y += 5;
+  font('italic', 8.5, GREY); doc.text(doc.splitTextToSize(pt('Document de référence : ' + m.docs), CW), L, y); y += 7;
+  const cx = [L, L + 88, L + 111, L + 134, L + 157], cw = [88, 23, 23, 23, 25];
+  const rowBox = (h) => { cx.forEach((x, i) => { stroke(.25, LINE); doc.rect(x, y, cw[i], h, 'S'); }); };
+  rowBox(9); font('bold', 9);
+  ['Conforme', 'Non conforme', 'Pas réalisé', 'Criticité'].forEach((t, i) => txt(t, cx[i + 1] + cw[i + 1] / 2, y + 5.8, { align: 'center' }));
+  y += 9;
+  m.criteria.forEach(c => {
+    const lines = doc.splitTextToSize(pt(c.label), 82), h = Math.max(8.5, lines.length * 4.1 + 4.4);
+    need(h + 2); rowBox(h);
+    font('normal', 9); doc.text(lines, cx[0] + 2, y + (h - lines.length * 4.1) / 2 + 3.2);
+    const v = rec.answers[c.id], col = { C: 1, NC: 2, PR: 3 }[v];
+    if (col) cross(cx[col] + cw[col] / 2, y + h / 2, 3.4);
+    font('bold', 9); txt(c.crit || 'Critique', cx[4] + cw[4] / 2, y + h / 2 + 1.2, { align: 'center' });
+    y += h;
+  });
+
+  /* Page 2 : photos à annexer, synthèse et visa */
+  doc.addPage(); y = START;
+  font('bold', 11, RED); txt('Photos à annexer à cette fiche', L, y); y += 6;
+  font('bold', 8.5); m.photos.forEach(([, l]) => { txt(l.toUpperCase(), L, y); y += 4.6; });
+  y += 6; font('bold', 11); txt('Synthèse et visa', L, y); y += 5;
+  const sx = [L, L + 38, L + 92, L + 130], sw = [38, 54, 38, 52];
+  const cell = (i, yy, h) => { stroke(.25, LINE); doc.rect(sx[i], yy, sw[i], h, 'S'); };
+  [0, 1, 2, 3].forEach(i => cell(i, y, 13));
+  font('normal', 9.5); txt('Non-conformités', sx[0] + 2, y + 5.2); txt('ouvertes', sx[0] + 2, y + 9.6);
+  txt('Non-conformités', sx[2] + 2, y + 5.2); txt('levées', sx[2] + 2, y + 9.6);
+  const nc = m.criteria.filter(c => rec.answers[c.id] === 'NC').length;
+  font('bold', 11); txt(String(nc), sx[1] + 3, y + 8); txt(String(rec.ncClosed || 0), sx[3] + 3, y + 8);
+  y += 13;
+  [0, 1, 2, 3].forEach(i => cell(i, y, 22));
+  font('normal', 9.5); txt('Décision', sx[0] + 2, y + 6);
+  Object.entries(DECISIONS).forEach(([k, l], i) => { checkbox(sx[1] + 2.5, y + 3 + i * 6.2, 3.6, rec.decision === k); font('normal', 9.5); txt(l, sx[1] + 8, y + 6 + i * 6.2); });
+  txt('Validation', sx[2] + 2, y + 6);
+  font('normal', 9); txt('Nom, visa et date :', sx[3] + 2, y + 6);
+  font('bold', 9.5); doc.text(doc.splitTextToSize(pt(rec.validator.name || ''), sw[3] - 4), sx[3] + 2, y + 12);
+  font('normal', 9); txt(rec.validator.date ? fmtDate(rec.validator.date) : '', sx[3] + 2, y + 19);
+  y += 22;
+
+  /* Pages suivantes : photos, deux par page */
+  const all = [];
+  m.photos.forEach(([cat, label]) => (photos[cat] || []).forEach(data => all.push({ label, data })));
+  all.forEach((it, i) => {
+    if (i % 2 === 0) { doc.addPage(); y = START; }
+    const top = START + (i % 2) * 118, maxW = CW, maxH = 106;
+    font('bold', 9.5); txt(it.label, L, top + 3);
+    try {
+      const pr = doc.getImageProperties(it.data), k = Math.min(maxW / pr.width, maxH / pr.height);
+      const w = pr.width * k, h = pr.height * k;
+      doc.addImage(it.data, 'JPEG', L + (CW - w) / 2, top + 6, w, h);
+      stroke(.25, LINE); doc.rect(L + (CW - w) / 2, top + 6, w, h, 'S');
+    } catch (e) { font('italic', 9, GREY); txt('Photo illisible', L, top + 12); }
+  });
+
+  /* En-tête et pied de page sur chaque page */
+  const N = doc.getNumberOfPages();
+  for (let i = 1; i <= N; i++) {
+    doc.setPage(i);
+    stroke(.35, INK); doc.rect(L, 10, CW, 24, 'S'); doc.line(L + 40, 10, L + 40, 34); doc.line(R - 40, 10, R - 40, 34);
+    font('bold', 15, BLUE); txt('apex', L + 4, 23.5); const w1 = doc.getTextWidth('apex');
+    font('normal', 15, BLUE); txt('energies', L + 4 + w1, 23.5);
+    doc.setFillColor(...YEL); doc.circle(L + 4 + w1 + doc.getTextWidth('energies') + 1.8, 18.6, 1.1, 'F');
+    font('bold', 9, BLUE); txt('Formulaire CONSTRUCTION', 105, 16.5, { align: 'center' });
+    stroke(.7, INK); doc.line(L + 46, 19.5, R - 46, 19.5);
+    let fs = 13; font('bold', fs, BLUE); while (doc.getTextWidth(pt(m.title)) > 96 && fs > 8) { fs -= .5; font('bold', fs, BLUE); }
+    txt(m.title, 105, 28.5, { align: 'center' });
+    font('bold', 9, BLUE);
+    txt(m.ref, 176, 16, { align: 'center' }); txt('Date MAJ :', 176, 21, { align: 'center' }); txt(m.version, 176, 26, { align: 'center' }); txt(`Page : ${i} / ${N}`, 176, 31, { align: 'center' });
+    font('normal', 7.5, GREY); txt('ASCAE C&I - ' + (p.name || ''), L, 289);
+    txt('Généré le ' + new Date().toLocaleDateString('fr-FR'), R, 289, { align: 'right' });
+  }
+  return doc.output('blob');
 }
 
 /* =========================================================
