@@ -1,4 +1,4 @@
-const CACHE = 'ascae-ci-v46';
+const CACHE = 'ascae-ci-v47';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png', './fiches.json'];
 /* cache:'reload' / 'no-cache' : on contourne le cache HTTP du navigateur et de l'hébergeur
    (GitHub Pages garde les fichiers 10 minutes), sinon une ancienne version peut ressortir. */
