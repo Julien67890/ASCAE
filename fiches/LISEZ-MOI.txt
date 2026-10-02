@@ -3,12 +3,23 @@ FICHES DE CONTROLE - mode d'emploi
 
 Une fiche = un fichier .json dans ce dossier + une ligne dans index.json.
 
+NOMS DE FICHIERS
+- Le nom du fichier peut contenir des espaces et des accents (ex. "Fiche controle fondations.json").
+  Seuls ces caracteres sont interdits : \ / : * ? " < > |
+- Le nom du fichier (sans .json) est l'IDENTIFIANT de la fiche : c'est lui qui est enregistre avec
+  chaque fiche remplie et chaque demande. Choisir le nom une fois, puis ne plus le changer.
+
+REFERENCE IMPRIMEE
+- La reference affichee et imprimee dans le PDF (ex. PR-26_FO36) est le champ "ref" a l'interieur
+  du fichier. Elle est independante du nom du fichier.
+- Garder le champ "ref" tel quel : il permet aussi de retrouver les fiches enregistrees avant un
+  renommage de fichier.
+
 AJOUTER UNE FICHE
-1. Copier un fichier existant (ex. PR-26_FO36.json) et le renommer avec la reference de la
-   nouvelle fiche (ex. PR-26_FO42.json). Le nom du fichier est l'identifiant de la fiche.
-2. Modifier son contenu : titre, mode operatoire, criteres, photos a annexer.
-3. Ajouter le nom du fichier dans index.json (liste "fiches"), entre guillemets, separe par une virgule.
-4. Deposer le tout dans le depot. Au prochain lancement en ligne, l'application la propose.
+1. Copier un fichier existant, le renommer, puis modifier son contenu : "ref", "title", "version",
+   mode operatoire, criteres, photos a annexer.
+2. Ajouter le nom du fichier dans index.json (liste "fiches"), entre guillemets, separe par une virgule.
+3. Deposer le tout dans le depot. Au prochain lancement en ligne, l'application la propose.
 
 CORRIGER UNE FICHE
 - Changer librement les textes (titre, "label" des criteres, mode operatoire, noms de photos).
@@ -18,4 +29,5 @@ CORRIGER UNE FICHE
 
 SI UNE FICHE N'APPARAIT PAS
 L'ecran "Choisir une fiche" signale le fichier en cause (JSON mal forme, fichier introuvable,
-criteres manquants...). Les autres fiches continuent de fonctionner.
+nom invalide, criteres manquants...). Les autres fiches continuent de fonctionner.
+Verifier aussi que le nom dans index.json est EXACTEMENT celui du fichier (majuscules comprises).
