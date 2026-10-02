@@ -611,6 +611,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
+const APP_VERSION = 'v44'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1710,7 +1711,11 @@ function reportForm(p, r, opts) {
       <div class="field"><label for="cr-o">Observations et réserves</label><textarea id="cr-o" name="observations" rows="3" placeholder="Points non conformes, réserves, remarques du client">${esc(d.observations)}</textarea></div>
       <div class="field"><label for="cr-ac">Actions à prévoir</label><textarea id="cr-ac" name="actions" rows="3" placeholder="Qui fait quoi, et pour quand">${esc(d.actions)}</textarea></div>
       <div class="field"><label for="cr-cm">Commentaire</label><textarea id="cr-cm" name="comment" rows="3" placeholder="Tout ce qui mérite d'être signalé sans entrer dans les catégories ci-dessus">${esc(d.comment || '')}</textarea></div>
-      <p class="hint mt-xs" style="margin-bottom:14px">Fiches de contrôle : enregistrez le brouillon, puis ouvrez le compte rendu pour en ajouter.</p>
+      <div class="field"><div class="flabel">Fiches de contrôle</div>
+        ${(() => { const fl = r ? (p.fiches || []).filter(x => x.reportId === r.id) : [];
+          return fl.length ? `<div class="recips" style="margin-bottom:8px">${fl.map(x => { const m = FICHES[x.model]; return `<span class="chip">${ic('check', 13)}<span>${esc(m ? m.short : x.model)} \u2014 ${x.status === 'validee' ? 'validée' : 'brouillon'}</span></span>`; }).join('')}</div>` : ''; })()}
+        <button type="button" class="btn btn-ghost btn-block" id="cr-fiche">${ic('plus', 17)} Ajouter une fiche de contrôle</button>
+        <p class="hint mt-xs">Le compte rendu est d'abord enregistré en brouillon, puis la fiche s'ouvre.</p></div>
       ${p.steps.length ? `<div class="field"><div class="flabel-row"><label>Avancement des étapes</label>
           <button type="button" class="mini" id="cr-unlock" aria-label="Modifier l'avancement">${ic('edit', 17)}</button></div>
         <div class="cr-steps locked" id="cr-steps">${p.steps.map(s => `<div><div class="cr-step-head"><span>${esc(s.name)}</span><b data-out="${s.id}">${s.progress || 0}%</b></div><input type="range" min="0" max="100" step="5" data-step="${s.id}" value="${s.progress || 0}" aria-label="Avancement ${esc(s.name)}" disabled></div>`).join('')}</div>
@@ -1803,6 +1808,12 @@ function reportForm(p, r, opts) {
         if (data.comment && data.comment !== avantCom) logFeed(p, 'note', data.comment);
 
         touch(p); return rep;
+      };
+      const fb = $('#cr-fiche', sh);
+      if (fb) fb.onclick = () => {
+        const rep = persist(false); if (!rep) return;
+        closeSheet(true); rerender(); toast('Brouillon enregistré');
+        newFiche(p, { reportId: rep.id, requestId: rep.requestId || '', back: () => viewReport(p, rep) });
       };
       $('#cr-draft', sh).onclick = () => { const rep = persist(false); if (rep) { closeSheet(); toast(wasSent ? 'Compte rendu enregistré' : 'Brouillon enregistré'); rerender(); } };
       $('#cr-send', sh).onclick = () => { const rep = persist(true); if (rep) { closeSheet(); toast(rep.closedRequest ? 'Compte rendu validé, demande close' : 'Compte rendu validé'); rerender(); mailSheet(reportMail(p, rep)); } };
@@ -2513,6 +2524,7 @@ function settingsSheet() {
       <button class="btn btn-ghost btn-block mb" id="s-out">Se déconnecter</button>
       <div class="field"><label for="s-name">Votre nom</label><input id="s-name" value="${esc(state.settings.userName)}" placeholder="Utilisé comme rédacteur par défaut" autocomplete="name" required></div>
       <div class="field"><div class="flabel">Apparence</div><div class="seg" id="s-theme">${[['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button type="button" data-t="${k}" class="${k === th ? 'active' : ''}">${l}</button>`).join('')}</div></div>
+      <p class="hint mt">Version de l'application : ${APP_VERSION}. Si une nouveauté n'apparaît pas, fermez complètement l'application puis rouvrez-la.</p>
       <p class="hint mt">Les chantiers sont enregistrés sur votre compte et partagés avec les adresses e-mail de l'équipe. L'application reste utilisable hors connexion : les modifications partent au retour du réseau.</p>`,
     foot: `<button class="btn btn-primary btn-block" data-sheet-close>Fermer</button>`,
     onMount(sh) {
@@ -2622,19 +2634,35 @@ function fichesBlock(p, ctx) {
 }
 function bindFiches(sh, p, ctx) {
   $$('[data-fq]', sh).forEach(b => b.onclick = () => {
-    const f = p.fiches.find(x => x.id === b.dataset.fq);
+    const f = (p.fiches || []).find(x => x.id === b.dataset.fq);
     if (f) { closeSheet(); ficheForm(p, f, ctx); }
   });
   const nb = $('[data-fq-new]', sh);
   if (nb) nb.onclick = () => { closeSheet(); newFiche(p, ctx); };
 }
 function newFiche(p, ctx) {
+  /* Le choix de la fiche s'affiche toujours, même avec un seul modèle. */
   const ids = Object.keys(FICHES);
-  if (ids.length === 1) return ficheForm(p, null, ctx, ids[0]);
+  const row = id => `<button type="button" class="linked-row" data-m="${id}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)} \u2014 mise à jour du ${esc(FICHES[id].version)}</small></span></button>`;
   openSheet({
     title: 'Choisir une fiche',
-    body: `<div class="linked">${ids.map(id => `<button type="button" class="linked-row" data-m="${id}">${ic('doc', 16)}<span><b>${esc(FICHES[id].title)}</b><small>${esc(id)}</small></span></button>`).join('')}</div>`,
-    onMount(sh) { $$('[data-m]', sh).forEach(b => b.onclick = () => { closeSheet(); ficheForm(p, null, ctx, b.dataset.m); }); }
+    body: `<div class="search">${ic('search', 18)}<input id="fq-q" type="search" placeholder="Rechercher une fiche (nom ou référence)" autocomplete="off" aria-label="Rechercher une fiche" autofocus></div>
+      <div class="linked" id="fq-list">${ids.map(row).join('')}</div>
+      <p class="empty-line" id="fq-none" hidden>Aucune fiche ne correspond à cette recherche.</p>`,
+    onMount(sh) {
+      const q = $('#fq-q', sh), list = $('#fq-list', sh), none = $('#fq-none', sh);
+      const open = id => { closeSheet(true); ficheForm(p, null, ctx, id); };
+      const draw = () => {
+        const t = norm(q.value).split(/\s+/).filter(Boolean);
+        const hit = ids.filter(id => { const m = FICHES[id], hay = norm(id + ' ' + m.title + ' ' + (m.short || '')); return t.every(w => hay.includes(w)); });
+        list.innerHTML = hit.map(row).join('');
+        none.hidden = hit.length > 0;
+        return hit;
+      };
+      q.addEventListener('input', draw);
+      q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const h = draw(); if (h.length === 1) open(h[0]); } });
+      list.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) open(b.dataset.m); });
+    }
   });
 }
 
@@ -2827,7 +2855,7 @@ function ficheForm(p, f, ctx, modelId) {
           photos: ph, ncOpen: m.criteria.filter(c => data.answers[c.id] === 'NC').length,
           status: valider || rec.status === 'validee' ? 'validee' : 'brouillon', updatedAt: Date.now()
         });
-        if (isNew) p.fiches.push(rec);
+        if (isNew) (p.fiches = p.fiches || []).push(rec);
         Object.entries(fresh).forEach(([id, x]) => {
           setDoc(doc(FICHE_PHOTOS, id), { ficheId: rec.id, projectId: p.id, cat: x.cat, data: x.data, createdAt: Date.now() })
             .catch(err => { console.error(err); toast('Photo refusée : ' + (err.code || 'erreur')); });
@@ -2868,7 +2896,7 @@ function ficheForm(p, f, ctx, modelId) {
       if (del) del.onclick = async () => {
         if (!await confirmDialog({ title: 'Supprimer la fiche ?', message: `La fiche « ${esc(m.title)} » du ${fmtDate(f.date)} sera définitivement supprimée, photos comprises.`, confirm: 'Supprimer' })) return;
         Object.values(f.photos || {}).flat().forEach(id => deleteDoc(doc(FICHE_PHOTOS, id)).catch(err => console.error(err)));
-        p.fiches = p.fiches.filter(x => x !== f); touch(p);
+        p.fiches = (p.fiches || []).filter(x => x !== f); touch(p);
         closeSheet(true); toast('Fiche supprimée'); rerender(); if (ctx.back) ctx.back();
       };
     }
