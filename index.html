@@ -201,6 +201,11 @@ a{color:inherit;text-decoration:none}
 .filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:12px}
 .fchip{flex:none;height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--border);background:var(--surface);font-size:13.5px;font-weight:650;color:var(--muted)}
 .fchip.active{background:var(--text);border-color:var(--text);color:var(--bg)}
+.fchip.sm{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;font-size:13px}
+.fdot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none}
+.item.has-fiche{position:relative}
+.item.has-fiche .item-main{padding-right:14px}
+.cr-dot{position:absolute;top:9px;right:9px;width:12px;height:12px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 2px var(--surface)}
 
 /* ---------- éléments de liste ---------- */
 .list{display:grid;gap:8px}
@@ -617,7 +622,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v54'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v55'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1425,7 +1430,7 @@ function projectForm(p) {
    Page projet
    ========================================================= */
 const TABS = [['suivi', 'Suivi', 'wrench'], ['journal', 'Commentaires', 'message'], ['etapes', 'Étapes', 'layers'], ['liens', 'Documents', 'link'], ['contacts', 'Contacts', 'contact'], ['equipe', 'Équipe', 'users']];
-let reqFilter = 'actives', crAll = false, feedFilter = 'note';
+let reqFilter = 'actives', crAll = false, crFicheOnly = false, feedFilter = 'note';
 
 function renderProject(p, tab) {
   if (tab === 'demandes' || tab === 'rapports') tab = 'suivi';
@@ -1465,7 +1470,7 @@ function tabSuivi(p) {
       ${tabDemandes(p)}
     </section>
     <section class="zone">
-      <div class="zone-head"><h2>Comptes rendus</h2><button class="btn btn-ghost btn-sm" data-act="new-report" data-id="${p.id}">${ic('plus', 15)} Compte rendu</button></div>
+      <div class="zone-head"><h2>Comptes rendus</h2>${crFilterChip(p)}<button class="btn btn-ghost btn-sm" data-act="new-report" data-id="${p.id}">${ic('plus', 15)} Compte rendu</button></div>
       ${tabRapports(p)}
     </section>
   </div>`;
@@ -1701,16 +1706,27 @@ function requestMail(p, r) {
 }
 
 /* ---------- Comptes rendus ---------- */
+/* Un compte rendu « contient une fiche » s'il en porte une, ou (anciennes données) si une fiche
+   a été remplie depuis sa demande liée sans être rattachée au compte rendu : même règle que fichesBlock. */
+const reportHasFiche = (p, r) => (p.fiches || []).some(f => f.reportId === r.id || (!f.reportId && r.requestId && f.requestId === r.requestId));
+function crFilterChip(p) {
+  const n = p.reports.filter(r => reportHasFiche(p, r)).length;
+  if (!n && !crFicheOnly) return '';
+  return `<button type="button" class="fchip sm ${crFicheOnly ? 'active' : ''}" data-act="cr-fiche-filter" aria-pressed="${crFicheOnly}" title="N'afficher que les comptes rendus contenant une fiche de contrôle"><span class="fdot"></span>Fiches (${n})</button>`;
+}
 function tabRapports(p) {
   if (!p.reports.length) return emptyState('doc', 'Aucun compte rendu',
     "Rédigez un compte rendu d'intervention. Une fois validé, il est envoyé par e-mail à tous les utilisateurs du projet.",
     `<button class="btn btn-primary" data-act="new-report" data-id="${p.id}">${ic('plus', 18)} Nouveau compte rendu</button>`);
-  const all = [...p.reports].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
+  const all = [...p.reports].filter(r => !crFicheOnly || reportHasFiche(p, r)).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
+  if (!all.length) return `<p class="empty-line">Aucun compte rendu ne contient de fiche de contrôle.</p>`;
   const list = crAll ? all : all.slice(0, 5);
   const rest = all.length - list.length;
   return `<div class="list">${list.map(r => {
     const d = toDate(r.date);
-    return `<div class="item" data-act="view-report" data-id="${p.id}" data-rid="${r.id}" tabindex="0">
+    const hasFiche = reportHasFiche(p, r);
+    return `<div class="item${hasFiche ? ' has-fiche' : ''}" data-act="view-report" data-id="${p.id}" data-rid="${r.id}" tabindex="0">
+      ${hasFiche ? '<span class="cr-dot" role="img" aria-label="Contient une fiche de contrôle" title="Contient une fiche de contrôle"></span>' : ''}
       <div class="datebox"><b>${d ? d.getDate() : '–'}</b><span>${d ? d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '') : ''}</span></div>
       <div class="item-main">
         <div class="item-title">${esc(r.title || "Compte rendu d'intervention")}</div>
@@ -3246,6 +3262,7 @@ const ACTS = {
   'req-filter': el => { reqFilter = el.dataset.f; rerender(); },
   'feed-filter': el => { feedFilter = el.dataset.f; rerender(); },
   'cr-all': () => { crAll = true; rerender(); },
+  'cr-fiche-filter': () => { crFicheOnly = !crFicheOnly; rerender(); },
   'new-request': el => requestForm(findP(el)),
   'view-request': el => { const p = findP(el), r = p && p.requests.find(x => x.id === el.dataset.rid); if (r) viewRequest(p, r); },
   'new-report': el => reportForm(findP(el)),
