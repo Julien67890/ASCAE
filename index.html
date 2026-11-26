@@ -622,7 +622,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v58'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v59'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -2145,51 +2145,21 @@ function viewReport(p, r) {
 }
 
 /* ---------- Envoi par e-mail ---------- */
-/* Aucun navigateur ne signale l'échec d'un lien mailto. On le déduit de l'absence
-   de départ : tant que la page garde le focus, rien ne s'est ouvert. On surveille
-   pendant plusieurs secondes, car une messagerie démarrée à froid est lente. */
-function watchMailto() {
-  const DUREE = 8000, PAS = 400;
-  let fini = false;
-  const stop = () => {
-    if (fini) return;
-    fini = true;
-    clearInterval(sonde);
-    removeEventListener('blur', stop);
-    removeEventListener('pagehide', stop);
-    document.removeEventListener('visibilitychange', stop);
-  };
-  addEventListener('blur', stop, { once: true });
-  addEventListener('pagehide', stop, { once: true });
-  document.addEventListener('visibilitychange', stop, { once: true });
-
-  const t0 = Date.now();
-  const sonde = setInterval(() => {
-    if (fini) return;
-    /* Un départ vers une autre application retire le focus ou masque la page. */
-    if (document.hidden || !document.hasFocus()) return stop();
-    if (Date.now() - t0 < DUREE) return;
-    stop();
-    confirmDialog({
-      title: "Votre messagerie ne s'est pas ouverte",
-      message: "Aucune application ne semble associée aux liens e-mail sur ce poste. Dans Windows, ouvrez Paramètres, Applications, Applications par défaut, cherchez Outlook et associez le type de lien MAILTO. En attendant, le bouton « Mise en page » copie le compte rendu à coller dans un message.",
-      confirm: "J'ai compris", danger: false, noCancel: true, icon: 'mail'
-    });
-  }, PAS);
+/* Les e-mails s'ouvrent dans Outlook web, sur tous les appareils. encodeURIComponent
+   et non URLSearchParams : les espaces doivent rester %20, pas « + ». */
+function owaHref(to, subject, body) {
+  return 'https://outlook.office.com/mail/deeplink/compose?to=' + encodeURIComponent(to.join(';'))
+    + '&subject=' + encodeURIComponent(subject) + (body ? '&body=' + encodeURIComponent(body) : '');
 }
 
-/* Outlook sous Windows attend « ; » entre les adresses. Ailleurs, on garde la virgule de la norme mailto. */
-const MAIL_SEP = /Windows/.test(navigator.userAgent) ? ';' : ',';
-
 function mailSheet(m) {
-  const href = 'mailto:' + m.to.join(MAIL_SEP) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
-  const hrefPlain = 'mailto:' + m.to.join(MAIL_SEP) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
-  const hrefEmpty = 'mailto:' + m.to.join(MAIL_SEP) + '?subject=' + encodeURIComponent(m.subject);
+  const href = owaHref(m.to, m.subject, m.body);
+  const hrefEmpty = owaHref(m.to, m.subject, '');
   const long = href.length > 2400;
   openSheet({
     title: m.title || 'Envoyer par e-mail', size: 'lg',
     body: `<div class="flabel">Destinataires</div>
-      <div class="recips">${m.to.length ? m.to.map(e => `<span class="chip">${ic('mail', 13)}<span>${esc(e)}</span></span>`).join('') : '<span class="hint">Aucune adresse e-mail renseignée : vous pourrez choisir les destinataires dans votre messagerie.</span>'}</div>
+      <div class="recips">${m.to.length ? m.to.map(e => `<span class="chip">${ic('mail', 13)}<span>${esc(e)}</span></span>`).join('') : '<span class="hint">Aucune adresse e-mail renseignée : vous pourrez choisir les destinataires dans Outlook web.</span>'}</div>
       <div class="flabel">Objet</div><div class="mail-subj">${esc(m.subject)}</div>
       <div class="flabel">Message</div>
       ${m.html ? `<div class="segbar"><button type="button" class="on" data-view="rich">Mis en forme</button><button type="button" data-view="plain">Texte envoyé</button></div>
@@ -2197,10 +2167,10 @@ function mailSheet(m) {
         <pre class="mail-body" id="mv-plain" hidden>${esc(m.body)}</pre>`
       : `<pre class="mail-body">${esc(m.body)}</pre>`}
       ${long ? `<div class="notice warn">${ic('alert', 16)}<span><b>Message long :</b> certaines messageries tronquent le texte pré-rempli. Vérifiez qu'il est complet avant d'envoyer, ou utilisez « Mise en page » puis collez dans votre e-mail.</span></div>`
-        : (m.html ? `<div class="notice">${ic('send', 16)}<span><b>Envoyer</b> ouvre votre messagerie avec le message ci-dessus, barres de couleur comprises. <b>Mise en page</b> copie la version encadrée à coller dans le message.</span></div>` : '')}`,
+        : (m.html ? `<div class="notice">${ic('send', 16)}<span><b>Envoyer</b> ouvre Outlook web avec le message ci-dessus, barres de couleur comprises. <b>Mise en page</b> copie la version encadrée à coller dans le message.</span></div>` : '')}`,
     foot: m.html
-      ? `<button class="btn btn-ghost" id="m-both">${ic('copy', 17)} Mise en page</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Envoyer</a>`
-      : `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" rel="noopener">${ic('send', 17)} Envoyer</a>`,
+      ? `<button class="btn btn-ghost" id="m-both">${ic('copy', 17)} Mise en page</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" target="_blank" rel="noopener">${ic('send', 17)} Envoyer</a>`
+      : `<button class="btn btn-ghost" id="m-copy">${ic('copy', 17)} Copier</button><a class="btn btn-primary" id="m-open" href="${esc(href)}" target="_blank" rel="noopener">${ic('send', 17)} Envoyer</a>`,
     onMount(sh) {
       $$('.segbar [data-view]', sh).forEach(b => b.onclick = () => {
         const rich = b.dataset.view === 'rich';
@@ -2210,11 +2180,7 @@ function mailSheet(m) {
       });
       const a = $('#m-open', sh);
       if (a) {
-        if (window.self !== window.top) a.target = '_blank';
-        a.addEventListener('click', () => {
-          watchMailto();
-          setTimeout(() => closeSheet(true), 400);
-        });
+        a.addEventListener('click', () => setTimeout(() => closeSheet(true), 400));
       }
 
       async function copyRich() {
@@ -2238,9 +2204,9 @@ function mailSheet(m) {
         toast(rich ? 'Mise en page copiée. Collez dans le message qui s\'ouvre.' : 'Copié en texte. Collez dans le message.');
         setTimeout(() => {
           const lnk = document.createElement('a');
-          lnk.href = rich ? hrefEmpty : hrefPlain;
+          lnk.href = rich ? hrefEmpty : href;
           lnk.rel = 'noopener';
-          if (window.self !== window.top) lnk.target = '_blank';
+          lnk.target = '_blank';
           document.body.appendChild(lnk); lnk.click(); lnk.remove();
           setTimeout(() => closeSheet(true), 500);
         }, 550);
