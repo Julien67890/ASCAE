@@ -622,7 +622,7 @@ const fbDb = initializeFirestore(fbApp, {
 /* =========================================================
    Données
    ========================================================= */
-const APP_VERSION = 'v55'; /* à garder identique à CACHE dans sw.js */
+const APP_VERSION = 'v58'; /* à garder identique à CACHE dans sw.js */
 const LS_KEY = 'suivi-chantiers:v1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1499,10 +1499,10 @@ function tabJournal(p) {
         return `<div class="fitem" data-fid="${f.id}">
           <span class="fic ${f.kind}">${ic(k.ic, 15)}</span>
           <div class="fbody">
-            <div class="ftop"><b>${esc(k.l)}</b><span class="fmeta">${esc(f.who || '')}${f.who ? ' · ' : ''}${fmtWhen(f.at)}</span></div>
+            <div class="ftop"><b>${esc(k.l)}</b><span class="fmeta">${esc(f.who || '')}${f.who ? ' · ' : ''}${fmtWhen(f.at)}${f.editedAt ? ' · modifié' + (f.editedBy ? ' par ' + esc(f.editedBy) : '') : ''}</span></div>
             <p class="prewrap">${esc(f.text)}</p>
           </div>
-          ${f.kind === 'note' ? `<button class="mini" data-act="del-note" data-id="${p.id}" data-fid="${f.id}" aria-label="Supprimer ce commentaire">${ic('trash', 16)}</button>` : ''}
+          ${f.kind === 'note' ? `<button class="mini" data-act="edit-note" data-id="${p.id}" data-fid="${f.id}" aria-label="Modifier ce commentaire">${ic('edit', 16)}</button><button class="mini" data-act="del-note" data-id="${p.id}" data-fid="${f.id}" aria-label="Supprimer ce commentaire">${ic('trash', 16)}</button>` : ''}
         </div>`;
       }).join('')}</div>`}`;
 }
@@ -2178,10 +2178,13 @@ function watchMailto() {
   }, PAS);
 }
 
+/* Outlook sous Windows attend « ; » entre les adresses. Ailleurs, on garde la virgule de la norme mailto. */
+const MAIL_SEP = /Windows/.test(navigator.userAgent) ? ';' : ',';
+
 function mailSheet(m) {
-  const href = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
-  const hrefPlain = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
-  const hrefEmpty = 'mailto:' + m.to.join(',') + '?subject=' + encodeURIComponent(m.subject);
+  const href = 'mailto:' + m.to.join(MAIL_SEP) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
+  const hrefPlain = 'mailto:' + m.to.join(MAIL_SEP) + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
+  const hrefEmpty = 'mailto:' + m.to.join(MAIL_SEP) + '?subject=' + encodeURIComponent(m.subject);
   const long = href.length > 2400;
   openSheet({
     title: m.title || 'Envoyer par e-mail', size: 'lg',
@@ -2215,7 +2218,7 @@ function mailSheet(m) {
       }
 
       async function copyRich() {
-        const plain = `À : ${m.to.join(', ')}\nObjet : ${m.subject}\n\n${m.body}`;
+        const plain = `À : ${m.to.join('; ')}\nObjet : ${m.subject}\n\n${m.body}`;
         if (m.html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
           try {
             await navigator.clipboard.write([new ClipboardItem({
@@ -2243,7 +2246,7 @@ function mailSheet(m) {
         }, 550);
       };
       const cp = $('#m-copy', sh);
-      if (cp) cp.onclick = () => copyText(`À : ${m.to.join(', ')}\nObjet : ${m.subject}\n\n${m.body}`, 'Message copié');
+      if (cp) cp.onclick = () => copyText(`À : ${m.to.join('; ')}\nObjet : ${m.subject}\n\n${m.body}`, 'Message copié');
     }
   });
 }
@@ -2271,21 +2274,30 @@ function tabEtapes(p) {
     </div>`;
   }).join('')}</div>`;
 }
-function noteForm(p) {
+function noteForm(p, note) {
   openSheet({
-    title: 'Nouveau commentaire',
+    title: note ? 'Modifier le commentaire' : 'Nouveau commentaire',
     body: `<form id="nf" novalidate>
       <div class="field"><label for="nf-t">Commentaire</label>
-        <textarea id="nf-t" name="text" rows="5" placeholder="Ce que vous voulez signaler à l'équipe" autofocus></textarea></div>
+        <textarea id="nf-t" name="text" rows="5" placeholder="Ce que vous voulez signaler à l'équipe" autofocus>${note ? esc(note.text) : ''}</textarea></div>
     </form>`,
-    foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="nf-save">Publier</button>`,
+    foot: `<button class="btn btn-ghost" data-sheet-close>Annuler</button><button class="btn btn-primary" id="nf-save">${note ? 'Enregistrer' : 'Publier'}</button>`,
     onMount(sh) {
       const f = $('#nf', sh);
       $('#nf-save', sh).onclick = () => {
         const t = f.elements.text.value.trim();
         if (!t) { f.elements.text.classList.add('invalid'); f.elements.text.focus(); return; }
-        logFeed(p, 'note', t);
-        touch(p); closeSheet(true); rerender(); toast('Commentaire publié');
+        if (!note) {
+          logFeed(p, 'note', t);
+          touch(p); closeSheet(true); rerender(); toast('Commentaire publié');
+          return;
+        }
+        /* On relit le chantier : la synchronisation a pu le remplacer pendant la saisie. */
+        const cur = getP(p.id), n = cur && (cur.feed || []).find(x => x.id === note.id);
+        if (!n) { closeSheet(true); rerender(); toast('Ce commentaire a été supprimé entre-temps'); return; }
+        if (t === n.text) { closeSheet(true); return; }
+        n.text = t; n.editedAt = Date.now(); n.editedBy = meName();
+        touch(cur); closeSheet(true); rerender(); toast('Commentaire modifié');
       };
     }
   });
@@ -3253,6 +3265,10 @@ const ACTS = {
     mineOnly = !mineOnly; rerender();
   },
   'new-note': el => noteForm(getP(el.dataset.id)),
+  'edit-note': el => {
+    const p = getP(el.dataset.id), n = p && (p.feed || []).find(f => f.id === el.dataset.fid);
+    if (n) noteForm(p, n);
+  },
   'del-note': async el => {
     const p = getP(el.dataset.id);
     if (!await confirmDialog({ title: 'Supprimer ce commentaire ?', message: 'Il disparaîtra pour toute l\'équipe.', confirm: 'Supprimer' })) return;
